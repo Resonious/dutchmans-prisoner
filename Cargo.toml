@@ -1,0 +1,18 @@
+[package]
+
+name = "legame"
+version = "0.0.1"
+authors = ["Resonious <metreckk@gmail.com>"]
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"
+
+[dependencies.glfw]
+git = "https://github.com/bjz/glfw-rs"
+default-features = false
+
+[dependencies.cgmath]
+git = "https://github.com/bjz/cgmath-rs"
+
+# [dependencies.rust-png]
+# git = "https://github.com/bvssvni/rust-png"
