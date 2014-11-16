@@ -8,23 +8,29 @@ use std::ptr;
 
 pub static STANDARD_VERTEX: &'static str = "
 		#version 330 core
-
 		layout (location = 0) in vec2 position;
+		layout (location = 1) in vec2 in_texcoord;
+
+		out vec2 texcoord;
 
 		void main()
 		{
 			gl_Position = vec4(position, 0.0f, 1.0f);
+			texcoord = vec2(in_texcoord.x, 1 - in_texcoord.y);
 		}
 	";
 
 pub static STANDARD_FRAGMENT: &'static str = "
 		#version 330 core
+		in vec2 texcoord;
 
 		out vec4 color;
 
+		uniform sampler2D tex;
+
 		void main()
 		{
-			color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+			color = texture(tex, texcoord);
 		}
 	";
 

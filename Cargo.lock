@@ -5,7 +5,7 @@ dependencies = [
  "cgmath 0.0.1 (git+https://github.com/bjz/cgmath-rs)",
  "gl 0.0.1 (git+https://github.com/bjz/gl-rs)",
  "glfw 0.0.1 (git+https://github.com/bjz/glfw-rs)",
- "image 0.1.0 (git+https://github.com/PistonDevelopers/rust-image)",
+ "lodepng 0.1.0 (git+https://github.com/pornel/lodepng-rust.git)",
 ]
 
 [[package]]
@@ -45,14 +45,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "image"
-version = "0.1.0"
-source = "git+https://github.com/PistonDevelopers/rust-image#3a398831adb22f1200cb68682e446ede187d23b9"
-
-[[package]]
 name = "khronos_api"
 version = "0.0.2"
 source = "git+https://github.com/bjz/gl-rs#218f14c94d79331fc5487f8564dc71f7ec4a22a8"
+
+[[package]]
+name = "lodepng"
+version = "0.1.0"
+source = "git+https://github.com/pornel/lodepng-rust.git#4d54d22a2396d46e5912c12da4b403ba748aae75"
 
 [[package]]
 name = "rust-xml"
