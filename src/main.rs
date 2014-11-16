@@ -40,7 +40,7 @@ macro_rules! as_void(
 
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let vertices: [GLfloat, ..16] = [
-    //    position       texcoords
+    //    position       texcoord
          0.5,  0.5,      1.0, 1.0,
          0.5, -0.5,      1.0, 0.0,
         -0.5, -0.5,      0.0, 0.0,
@@ -55,7 +55,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
     let mut ebo: GLuint = 0;
-    
+
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
         gl::BindVertexArray(vao);
