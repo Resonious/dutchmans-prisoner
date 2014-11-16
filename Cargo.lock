@@ -5,6 +5,7 @@ dependencies = [
  "cgmath 0.0.1 (git+https://github.com/bjz/cgmath-rs)",
  "gl 0.0.1 (git+https://github.com/bjz/gl-rs)",
  "glfw 0.0.1 (git+https://github.com/bjz/glfw-rs)",
+ "image 0.1.0 (git+https://github.com/PistonDevelopers/rust-image)",
 ]
 
 [[package]]
@@ -42,6 +43,11 @@ source = "git+https://github.com/bjz/glfw-rs#6afb8eadf23e2ae5925e70d364c196ceab6
 dependencies = [
  "semver 0.1.0 (git+https://github.com/rust-lang/semver)",
 ]
+
+[[package]]
+name = "image"
+version = "0.1.0"
+source = "git+https://github.com/PistonDevelopers/rust-image#3a398831adb22f1200cb68682e446ede187d23b9"
 
 [[package]]
 name = "khronos_api"

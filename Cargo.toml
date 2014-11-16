@@ -14,5 +14,5 @@ default-features = false
 [dependencies.cgmath]
 git = "https://github.com/bjz/cgmath-rs"
 
-# [dependencies.rust-png]
-# git = "https://github.com/bvssvni/rust-png"
+[dependencies.image]
+git = "https://github.com/PistonDevelopers/rust-image"

@@ -6,6 +6,28 @@ extern crate native;
 use gl::types::*;
 use std::ptr;
 
+pub static STANDARD_VERTEX: &'static str = "
+		#version 330 core
+
+		layout (location = 0) in vec2 position;
+
+		void main()
+		{
+			gl_Position = vec4(position, 0.0f, 1.0f);
+		}
+	";
+
+pub static STANDARD_FRAGMENT: &'static str = "
+		#version 330 core
+
+		out vec4 color;
+
+		void main()
+		{
+			color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+		}
+	";
+
 macro_rules! check_log(
 	($typ:expr $get_iv:ident | $get_log:ident $val:ident $status:ident) => (
 		unsafe {

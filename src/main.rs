@@ -9,33 +9,13 @@ extern crate gl;
 use glfw::Context;
 
 use render::shader;
-mod render { pub mod shader; }
+use render::texture;
 
+pub mod render;
+pub mod asset;
 
 fn main() {
 	let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-
-	let vertex_shader_src = "
-		#version 330 core
-
-		layout (location = 0) in vec2 position;
-
-		void main()
-		{
-			gl_Position = vec4(position, 0.0f, 1.0f);
-		}
-	";
-
-	let fragment_shader_src = "
-		#version 330 core
-
-		out vec4 color;
-
-		void main()
-		{
-			color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-		}
-	";
 
 	let (window, _event) = glfw
 		.create_window(600, 480, "Crattle Crute maybe?", glfw::Windowed)
@@ -47,7 +27,11 @@ fn main() {
 
 	gl::load_with(|s| window.get_proc_address(s));
 
-	let prog = shader::create_program(vertex_shader_src, fragment_shader_src);
+	let prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
+	println!("Hello, world! Here is the program id: {}", prog);
 
-	println!("Hello, world! Here is the program id: {}", prog)
+	let path = asset::path("basicshading.png");
+	println!("here it is: {}", path.display());
+
+	let _test = texture::load_texture("basicshading.png");
 }
