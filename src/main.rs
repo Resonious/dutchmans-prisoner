@@ -5,6 +5,7 @@ extern crate libc;
 
 extern crate glfw;
 extern crate gl;
+extern crate cgmath;
 
 use glfw::Context;
 
@@ -14,6 +15,7 @@ use std::mem::{transmute, size_of, size_of_val};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
+use cgmath::*;
 
 pub mod render;
 pub mod asset;
@@ -38,23 +40,39 @@ macro_rules! as_void(
     ($val:expr) => (transmute::<_, *const c_void>($val))
 )
 
+macro_rules! stride(
+    ($val:expr) => (($val * size_of::<GLfloat>() as i32))
+)
+
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let vertices: [GLfloat, ..16] = [
-    //    position       texcoord
-         0.5,  0.5,      1.0, 1.0,
-         0.5, -0.5,      1.0, 0.0,
-        -0.5, -0.5,      0.0, 0.0,
-        -0.5,  0.5,      0.0, 1.0
+    //    position
+         1.0,  1.0,    1.0, 1.0, // Top right
+         1.0, -1.0,    1.0, 0.0, // Bottom right
+        -1.0, -1.0,    0.0, 0.0, // Top left
+        -1.0,  1.0,    0.0, 1.0 // Bottom left
     ];
-
+    /*  texcoords (for full image)
+        1.0, 1.0,
+        1.0, 0.0,
+        0.0, 0.0,
+        0.0, 1.0
+    */
     let indices: [GLuint, ..6] = [
         0, 1, 3,
         1, 2, 3
     ];
 
+    let positions = vec![
+        Vector2::<GLfloat>::new(0.1, 0.1),
+        Vector2::<GLfloat>::new(0.5, 0.5)
+    ];
+
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
     let mut ebo: GLuint = 0;
+
+    let mut positions_vbo: GLuint = 0;
 
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
@@ -62,15 +80,24 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
         gen_buffer!(vbo, vertices, ARRAY_BUFFER);
         gen_buffer!(ebo, indices, ELEMENT_ARRAY_BUFFER);
+        gen_buffer!(positions_vbo, positions, ARRAY_BUFFER);
 
-        let stride = 4 * size_of::<GLfloat>() as i32;
-
-        gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE as GLboolean,
-                                stride, as_void!(0u64));
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean,
-                                stride, as_void!(2 * size_of::<GLfloat>()));
+        gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE as GLboolean,
+                                stride!(4), as_void!(0u64));
+        
         gl::EnableVertexAttribArray(1);
+        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean,
+                                stride!(4), as_void!(2 * size_of::<GLfloat>()));
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, positions_vbo);
+        gl::EnableVertexAttribArray(2);
+        gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE as GLboolean,
+                                stride!(2), as_void!(0u64));
+        gl::VertexAttribDivisor(2, 1);
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
     // println!("OK we got {} {} {}", vao, vbo, ebo);
@@ -105,7 +132,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             gl::ClearColor(0.0, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 2);
         }
 
         window.swap_buffers();

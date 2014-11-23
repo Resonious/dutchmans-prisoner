@@ -8,14 +8,18 @@ use std::ptr;
 
 pub static STANDARD_VERTEX: &'static str = "
         #version 330 core
-        layout (location = 0) in vec2 position;
+
+        // Per vertex:
+        layout (location = 0) in vec2 vertex_pos;
         layout (location = 1) in vec2 in_texcoord;
+        // Per instance:
+        layout (location = 2) in vec2 position;
 
         out vec2 texcoord;
 
         void main()
         {
-            gl_Position = vec4(position, 0.0f, 1.0f);
+            gl_Position = vec4(vertex_pos / 10 + position, 0.0f, 1.0f);
             texcoord = vec2(in_texcoord.x, 1 - in_texcoord.y);
         }
     ";
