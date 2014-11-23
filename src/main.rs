@@ -103,7 +103,12 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     // println!("OK we got {} {} {}", vao, vbo, ebo);
 
     let prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
-    unsafe { gl::UseProgram(prog); }
+    unsafe {
+        gl::UseProgram(prog);
+    }
+    let cam_pos_uniform = unsafe { "cam_pos".with_c_str(|c| gl::GetUniformLocation(prog, c)) };
+    unsafe { gl::Uniform2f(cam_pos_uniform, 0f32, 0f32) };
+    let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
     let test_tex = texture::load_texture("testtex.png");
     
@@ -124,11 +129,18 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
                     window.set_should_close(true)
                 }
 
+                glfw::KeyEvent(glfw::KeyUp, _, glfw::Press, _) => cam_pos.y += 0.1,
+                glfw::KeyEvent(glfw::KeyDown, _, glfw::Press, _) => cam_pos.y -= 0.1,
+                glfw::KeyEvent(glfw::KeyRight, _, glfw::Press, _) => cam_pos.x += 0.1,
+                glfw::KeyEvent(glfw::KeyLeft, _, glfw::Press, _) => cam_pos.x -= 0.1,
+
                 _ => {}
             }
         }
 
         unsafe {
+            gl::Uniform2f(cam_pos_uniform, cam_pos.x, cam_pos.y);
+
             gl::ClearColor(0.0, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
