@@ -9,10 +9,10 @@ use std::ptr;
 pub static STANDARD_VERTEX: &'static str = "
         #version 330 core
 
-        // Per vertex:
+        // Per vertex, normalized:
         layout (location = 0) in vec2 vertex_pos;
         layout (location = 1) in vec2 in_texcoord;
-        // Per instance:
+        // Per instance, in pixels:
         layout (location = 2) in vec2 position;
 
         uniform vec2 screen_size;
@@ -28,7 +28,7 @@ pub static STANDARD_VERTEX: &'static str = "
 
         void main()
         {
-            vec2 pixel_screen_pos = position - cam_pos;
+            vec2 pixel_screen_pos = (position - cam_pos) * 2;
             gl_Position = vec4(
                 vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos),
                 0.0f, 1.0f

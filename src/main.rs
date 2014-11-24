@@ -65,10 +65,10 @@ fn set_positions_attribute(vbo: GLuint) {
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let vertices: [GLfloat, ..16] = [
     //    position
-         1.0,  1.0,    1.0, 1.0, // Top right
-         1.0,  0.0,    1.0, 0.0, // Bottom right
+         2.0,  2.0,    1.0, 1.0, // Top right
+         2.0,  0.0,    1.0, 0.0, // Bottom right
          0.0,  0.0,    0.0, 0.0, // Top left
-         0.0,  1.0,    0.0, 1.0 // Bottom left
+         0.0,  2.0,    0.0, 1.0 // Bottom left
     ];
     /*  texcoords (for full image)
         1.0, 1.0,
@@ -86,7 +86,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     ];
 
     let blob_positions = vec![
-        Vector2::<GLfloat>::new(600.0, -200.0),
+        // Vector2::<GLfloat>::new(600.0, -200.0),
         Vector2::<GLfloat>::new(300.0, 100.0)
     ];
 
@@ -115,13 +115,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean,
                                 stride!(4), as_void!(2 * size_of::<GLfloat>()));
 
-        // gl::BindBuffer(gl::ARRAY_BUFFER, blob_positions_vbo);
-        // gl::EnableVertexAttribArray(2);
-        // gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE as GLboolean,
-        //                         stride!(2), as_void!(0u64));
-        // gl::VertexAttribDivisor(2, 1);
-
-
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
@@ -144,15 +137,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let test_tex = texture::load_texture("testtex.png");
     let zero_zero_tex = texture::load_texture("zero-zero.png");
     test_tex.set(tex_uniform, sprite_size_uniform);
-
-    // unsafe {
-    //     // It may already be bound, but just to be clear...
-    //     gl::ActiveTexture(gl::TEXTURE0);
-    //     gl::BindTexture(gl::TEXTURE_2D, test_tex);
-    //     gl::Uniform1i(tex_uniform, 0);
-
-    //     gl::Uniform2f(sprite_size_uniform, 256.0, 256.0);
-    // }
 
     while !window.should_close() {
         glfw.poll_events();
@@ -203,11 +187,11 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             // Draw zero-zero sign
             zero_zero_tex.set(tex_uniform, sprite_size_uniform);
             set_positions_attribute(zero_zero_positions_vbo);
-            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 2);
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_positions.len() as i32);
             // Draw blobs
             test_tex.set(tex_uniform, sprite_size_uniform);
             set_positions_attribute(blob_positions_vbo);
-            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 2);
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), blob_positions.len() as i32);
         }
 
         window.swap_buffers();
