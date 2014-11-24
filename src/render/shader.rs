@@ -15,13 +15,24 @@ pub static STANDARD_VERTEX: &'static str = "
         // Per instance:
         layout (location = 2) in vec2 position;
 
+        uniform vec2 screen_size;
         uniform vec2 cam_pos;
+        uniform vec2 sprite_size;
 
         out vec2 texcoord;
 
+        vec2 from_pixel(vec2 pos)
+        {
+            return pos / screen_size;
+        }
+
         void main()
         {
-            gl_Position = vec4(vertex_pos / 10 + position - cam_pos, 0.0f, 1.0f);
+            vec2 pixel_screen_pos = position - cam_pos;
+            gl_Position = vec4(
+                vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos),
+                0.0f, 1.0f
+            );
             texcoord = vec2(in_texcoord.x, 1 - in_texcoord.y);
         }
     ";

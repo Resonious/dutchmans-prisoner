@@ -9,7 +9,13 @@ use std::mem::transmute;
 
 use asset;
 
-pub fn load_texture(filename: &str) -> GLuint {
+pub struct Texture {
+    id: GLuint,
+    width: i32,
+    height: i32
+}
+
+pub fn load_texture(filename: &str) -> Texture {
     let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
     // println!("dimensions of {}: {}", filename, image.dimensions());
     let (width, height) = (image.width as i32, image.height as i32);
@@ -37,5 +43,21 @@ pub fn load_texture(filename: &str) -> GLuint {
         );
     }
 
-    tex_id
+    Texture {
+        id: tex_id,
+        width: width,
+        height: height
+    }
+}
+
+impl Texture {
+    // Set the texture to the TEXTURE0 uniform slot
+    pub fn set(&self, sampler_uniform: GLint, sprite_size_uniform: GLint) {
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.id);
+            gl::Uniform1i(sampler_uniform, 0);
+            gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
+        }
+    }
 }
