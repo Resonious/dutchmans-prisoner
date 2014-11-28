@@ -7,14 +7,14 @@ extern crate libc;
 use gl::types::*;
 use std::mem::transmute;
 use std::rc::Rc;
+use std::vec::Vec;
 
 use asset;
 
-// TODO THIS priobably needs a destructor :(
 pub struct Texture {
-    id: GLuint,
-    width: i32,
-    height: i32
+    pub id: GLuint,
+    pub width: i32,
+    pub height: i32
 }
 
 impl Texture {
@@ -27,36 +27,73 @@ impl Texture {
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
         }
     }
+
+    pub fn unload(&mut self) {
+        // TODO plz
+        panic!("HAHAHA UNLOADING TEXTURES ISN'T A THING YET");
+    }
 }
 
-// TODO this probably needs a destructor :(
+type StrTexPairList = Vec<(&'static str, Texture)>;
+
 pub struct TextureManager {
-    textures: Vec<(&'static str, Rc<Texture>)>
+    textures: StrTexPairList
 }
 
 impl TextureManager {
     pub fn new() -> TextureManager {
-        TextureManager { textures: vec![] }
+        TextureManager { textures: vec!() }
     }
 
-    pub fn load(&mut self, filename: &'static str) -> Rc<Texture> {
+    // If the texture with the given file name is present, return
+    // a pointer to it, else run load_texture, store it, and return
+    // a pointer to that.
+    pub fn load(&mut self, filename: &'static str) -> *const Texture {
         let mut textures = &mut self.textures;
 
         for item in textures.iter() {
             match *item {
                 (ref tex_filename, ref tex) => if *tex_filename == filename
-                    { return tex.clone() }
+                    { return tex }
             }
         }
 
-        let tex = Rc::new(load_texture(filename));
+        let tex = load_texture(filename);
         textures.push( (filename, tex) );
         match textures[textures.len() - 1] {
-            (_, ref tex) => return tex.clone()
+            (_, ref tex) => return tex
+        }
+    }
+
+    // Unload texture with the given name. Returns true if it
+    // was successfully removed.
+    pub fn unload(&mut self, filename: &'static str) -> bool {
+        let mut textures = &mut self.textures;
+        let mut index = 0;
+
+        for item in textures.iter() {
+            match *item {
+                (ref tex_filename, _) =>
+                    if *tex_filename == filename
+                        { break }
+                    else
+                        { index += 1 }
+            }
+        }
+
+        match textures.remove(index) {
+            Some( (_, mut texture) ) => {
+                texture.unload();
+                true
+            }
+            None => false
         }
     }
 }
 
+// Load a texture from the given filename into the GPU
+// memory, returning a struct holding the OpenGL ID and
+// dimensions.
 pub fn load_texture(filename: &str) -> Texture {
     let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
     // println!("dimensions of {}: {}", filename, image.dimensions());

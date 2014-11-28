@@ -11,6 +11,7 @@ use glfw::Context;
 
 use render::shader;
 use render::texture;
+use render::texture::{Texture, TextureManager};
 use std::mem::{transmute, size_of, size_of_val};
 use gl::types::*;
 use libc::c_void;
@@ -138,6 +139,9 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let zero_zero_tex = texture::load_texture("zero-zero.png");
     test_tex.set(tex_uniform, sprite_size_uniform);
 
+    // Doing this here for now to make sure it compiles and stuff:
+    test_texture_manager_and_sprites();
+
     while !window.should_close() {
         glfw.poll_events();
 
@@ -198,6 +202,17 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     }
 }
 
+fn test_texture_manager_and_sprites() {
+    println!("==== Testing texture manager and sprites! ====");
+    let mut texture_manager = TextureManager::new();
+
+    let texture_ptr = texture_manager.load("testtex.png");
+    let texture = unsafe { &*texture_ptr };
+    println!("So, our texture is at {} and is {} x {}", texture.id, texture.width, texture.height);
+
+    println!("==== Done testing texture manager and sprites! ====");
+}
+
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
@@ -211,8 +226,8 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s));
 
-    let path = asset::path("basicshading.png");
-    println!("here it is: {}", path.display());
+    // let path = asset::path("basicshading.png");
+    // println!("here it is: {}", path.display());
 
     test_loop(&glfw, &window, &event);
 }
