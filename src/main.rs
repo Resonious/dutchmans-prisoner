@@ -86,7 +86,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     ];
 
     let blob_positions = vec![
-        // Vector2::<GLfloat>::new(600.0, -200.0),
+        Vector2::<GLfloat>::new(600.0, -200.0),
         Vector2::<GLfloat>::new(300.0, 100.0)
     ];
 

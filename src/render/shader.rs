@@ -14,6 +14,7 @@ pub static STANDARD_VERTEX: &'static str = "
         layout (location = 1) in vec2 in_texcoord;
         // Per instance, in pixels:
         layout (location = 2) in vec2 position;
+        // layout (location = 2) in vec2 in_texcoord;
 
         uniform vec2 screen_size;
         uniform vec2 cam_pos;
