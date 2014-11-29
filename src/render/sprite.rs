@@ -7,20 +7,60 @@ extern crate gl;
 extern crate cgmath;
 
 use cgmath::*;
+use gl::types::*;
 use std::vec::Vec;
 use render::texture::{Texture, TextureManager};
 
+// pub struct Texcoord {
+//     top_right:    Vector2<GLfloat>,
+//     bottom_right: Vector2<GLfloat>,
+//     top_left:     Vector2<GLfloat>,
+//     bottom_left:  Vector2<GLfloat>
+// }
+
+pub type Texcoords = [GLfloat, ..8];
+
 pub struct Frame {
     position: Vector2<f32>,
-    size: Vector2<f32>
+    size: Vector2<f32>,
+
+    texture: *const Texture,
+    texcoords: Texcoords
 }
 
-// impl Frame {
-// }
+impl Frame {
+    pub fn generate_texcoords(&mut self) {
+        let tex_width = unsafe { (*self.texture).width } as f32;
+        let position  = self.position;
+        let size      = self.size;
+
+        self.texcoords = [
+            // Top right
+            (position.x + size.x) / tex_width,
+            (position.y)          / tex_width,
+
+            // Bottom right
+            (position.x + size.x) / tex_width,
+            (position.y + size.y) / tex_width,
+
+            // Top left
+            (position.x)          / tex_width,
+            (position.y)          / tex_width,
+
+            // Bottom left
+            (position.x)          / tex_width,
+            (position.y + size.y) / tex_width
+        ];
+    }
+}
 
 pub struct Sprite {
     texture: *const Texture,
-    frames: Vec<Frame>
+    // TODO maybe frames should not be attached to the sprite like this.
+    // Maybe frames should be attached to TextureManager or something??
+    frames: Vec<Frame>,
+
+    buffer_pos: i32
 }
 
 impl Sprite {
@@ -28,7 +68,8 @@ impl Sprite {
     pub fn new(tex_manager: &mut TextureManager, tex: &'static str) -> Sprite {
         Sprite {
             texture: tex_manager.load(tex),
-            frames: vec!()
+            frames: vec!(),
+            buffer_pos: 0
         }
     }
 
@@ -36,14 +77,18 @@ impl Sprite {
         self.frames.push(
             Frame {
                 position: Vector2::<f32>::new(x, y),
-                size: Vector2::<f32>::new(width, height)
+                size: Vector2::<f32>::new(width, height),
+                texture: self.texture,
+                texcoords: [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
             }
         );
+        let &mut frame = &self.frames[self.frames.len() - 1];
+        frame.generate_texcoords();
     }
 
     pub fn add_frames(&mut self, count: i16, width: f32, height: f32) {
-        let texture = unsafe { &*self.texture };
-        let tex_width = texture.width as f32;
+        let texture    = unsafe { &*self.texture };
+        let tex_width  = texture.width as f32;
         let tex_height = texture.height as f32;
 
         let mut current_pos = Vector2::<f32>::new(0.0, 0.0);

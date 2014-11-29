@@ -12,9 +12,9 @@ pub static STANDARD_VERTEX: &'static str = "
         // Per vertex, normalized:
         layout (location = 0) in vec2 vertex_pos;
         layout (location = 1) in vec2 in_texcoord;
-        // Per instance, in pixels:
-        layout (location = 2) in vec2 position;
-        // layout (location = 2) in vec2 in_texcoord;
+        // Per instance:
+        layout (location = 2) in vec2 position;       // in pixels
+        // layout (location = 2) in vec2 in_texcoord; // normalized
 
         uniform vec2 screen_size;
         uniform vec2 cam_pos;

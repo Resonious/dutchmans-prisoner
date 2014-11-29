@@ -70,7 +70,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
          2.0,  2.0,    1.0, 1.0, // Top right
          2.0,  0.0,    1.0, 0.0, // Bottom right
          0.0,  0.0,    0.0, 0.0, // Top left
-         0.0,  2.0,    0.0, 1.0 // Bottom left
+         0.0,  2.0,    0.0, 1.0  // Bottom left
     ];
     /*  texcoords (for full image)
         1.0, 1.0,
