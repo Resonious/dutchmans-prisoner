@@ -66,10 +66,9 @@ impl TextureManager {
     // Unload texture with the given name. Returns true if it
     // was successfully removed.
     pub fn unload(&mut self, filename: &'static str) -> bool {
-        let mut textures = &mut self.textures;
         let mut index = 0;
 
-        for item in textures.iter() {
+        for item in self.textures.iter() {
             match *item {
                 (ref tex_filename, _) =>
                     if *tex_filename == filename
@@ -79,7 +78,11 @@ impl TextureManager {
             }
         }
 
-        match textures.remove(index) {
+        self.unload_at(index)
+    }
+
+    pub fn unload_at(&mut self, index: uint) -> bool {
+        match self.textures.remove(index) {
             Some( (_, mut texture) ) => {
                 texture.unload();
                 true
