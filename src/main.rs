@@ -11,7 +11,8 @@ use glfw::Context;
 
 use render::shader;
 use render::texture;
-use render::texture::{Texture, TextureManager};
+use render::texture::{TextureManager};
+use render::sprite::Sprite;
 use std::mem::{transmute, size_of, size_of_val};
 use gl::types::*;
 use libc::c_void;
@@ -77,6 +78,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         0.0, 0.0,
         0.0, 1.0
     */
+
     let indices: [GLuint, ..6] = [
         0, 1, 3,
         1, 2, 3
@@ -209,6 +211,28 @@ fn test_texture_manager_and_sprites() {
     let texture_ptr = texture_manager.load("testtex.png");
     let texture = unsafe { &*texture_ptr };
     println!("So, our texture is at {} and is {} x {}", texture.id, texture.width, texture.height);
+
+    let same_texture_ptr = texture_manager.load("testtex.png");
+    let same_texture = unsafe { &*same_texture_ptr };
+    println!("Grabbing it again, we have {}: {} x {}", same_texture.id, same_texture.width, same_texture.height);
+
+    println!("Now going to unload that shit");
+    texture_manager.unload("testtex.png");
+
+    println!("Now we try again");
+    let texture_ptr = texture_manager.load("testtex.png");
+    let texture = unsafe { &*texture_ptr };
+    println!("So, our texture is at {} and is {} x {}", texture.id, texture.width, texture.height);
+
+    println!("\n================ Now onto sprites... =================\n");
+
+    let mut sprite = Sprite::new(&mut texture_manager, "testtex.png");
+    sprite.add_frames(9, 64.0, 64.0);
+    sprite.print_frames();
+
+    println!("Looks good?");
+
+    
 
     println!("==== Done testing texture manager and sprites! ====");
 }

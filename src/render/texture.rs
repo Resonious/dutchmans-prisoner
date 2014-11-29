@@ -6,7 +6,6 @@ extern crate libc;
 
 use gl::types::*;
 use std::mem::transmute;
-use std::rc::Rc;
 use std::vec::Vec;
 
 use asset;
@@ -29,15 +28,14 @@ impl Texture {
     }
 
     pub fn unload(&mut self) {
-        // TODO plz
-        panic!("HAHAHA UNLOADING TEXTURES ISN'T A THING YET");
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
+        }
     }
 }
 
-type StrTexPairList = Vec<(&'static str, Texture)>;
-
 pub struct TextureManager {
-    textures: StrTexPairList
+    textures: Vec<(&'static str, Texture)>
 }
 
 impl TextureManager {
