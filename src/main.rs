@@ -1,4 +1,4 @@
-#![feature(globs, macro_rules)]
+#![feature(globs, macro_rules, unsafe_destructor)]
 extern crate native;
 extern crate core;
 extern crate libc;
@@ -11,9 +11,11 @@ use glfw::Context;
 
 use render::shader;
 use render::texture;
-use render::texture::{TextureManager};
+use render::texture::TextureManager;
 use render::sprite::Sprite;
+use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
+use std::rc::{mod, Rc};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
@@ -205,7 +207,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 }
 
 fn test_texture_manager_and_sprites() {
-    println!("==== Testing texture manager and sprites! ====");
+    println!("==== Testing texture manager and sprites! ====\n");
     let mut texture_manager = TextureManager::new();
 
     let texture_ptr = texture_manager.load("testtex.png");
@@ -226,13 +228,15 @@ fn test_texture_manager_and_sprites() {
 
     println!("\n================ Now onto sprites... =================\n");
 
-    let mut sprite = Sprite::new(&mut texture_manager, "testtex.png");
+    let mut sprite = Rc::new(Sprite::new(&mut texture_manager, "testtex.png"));
     sprite.add_frames(9, 64.0, 64.0);
     sprite.print_frames();
 
     println!("Looks good?");
+    println!("Now going to add it to a DisplayList\n");
 
-    
+    let mut displaylist = DisplayList::new();
+    displaylist.add_sprite(sprite);
 
     println!("==== Done testing texture manager and sprites! ====");
 }

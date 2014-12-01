@@ -58,9 +58,9 @@ pub struct Sprite {
     texture: *const Texture,
     // TODO maybe frames should not be attached to the sprite like this.
     // Maybe frames should be attached to TextureManager or something??
-    frames: Vec<Frame>,
+    pub frames: Vec<Frame>,
 
-    buffer_pos: i32
+    pub buffer_pos: i32
 }
 
 impl Sprite {
@@ -71,6 +71,10 @@ impl Sprite {
             frames: vec!(),
             buffer_pos: 0
         }
+    }
+
+    pub fn texture_ref(&self) -> &Texture {
+        unsafe { &*self.texture }
     }
 
     pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
@@ -118,6 +122,17 @@ impl Sprite {
     pub fn print_frames(&self) {
         for frame in self.frames.iter() {
             println!("Position: {}, size: {}", frame.position, frame.size);
+        }
+    }
+}
+
+impl Clone for Sprite {
+    fn clone(&self) -> Sprite {
+        Sprite {
+            texture: self.texture,
+            // For now, frames are not copied.
+            frames: vec!(),
+            buffer_pos: self.buffer_pos
         }
     }
 }
