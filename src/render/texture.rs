@@ -44,23 +44,26 @@ impl TextureManager {
     }
 
     // If the texture with the given file name is present, return
-    // a pointer to it, else run load_texture, store it, and return
-    // a pointer to that.
-    pub fn load(&mut self, filename: &'static str) -> *const Texture {
+    // the index of the texture.
+    pub fn load(&mut self, filename: &'static str) -> i32 {
         let mut textures = &mut self.textures;
 
+        let mut count = 0;
         for item in textures.iter() {
             match *item {
-                (ref tex_filename, ref tex) => if *tex_filename == filename
-                    { return tex }
+                (ref tex_filename, _) =>
+                    if *tex_filename == filename
+                        { return count }
+                    else
+                        { count += 1 }
             }
         }
 
-        let tex = load_texture(filename);
+        let tex   = load_texture(filename);
+        let index = textures.len();
+
         textures.push( (filename, tex) );
-        match textures[textures.len() - 1] {
-            (_, ref tex) => return tex
-        }
+        return index;
     }
 
     // Unload texture with the given name. Returns true if it

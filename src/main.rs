@@ -207,6 +207,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 }
 
 fn test_texture_manager_and_sprites() {
+    /*
     println!("==== Testing texture manager and sprites! ====\n");
     let mut texture_manager = TextureManager::new();
 
@@ -239,6 +240,9 @@ fn test_texture_manager_and_sprites() {
     displaylist.add_sprite(sprite);
 
     println!("==== Done testing texture manager and sprites! ====");
+    */
+
+    // FILL THIS SHIT IN
 }
 
 fn main() {

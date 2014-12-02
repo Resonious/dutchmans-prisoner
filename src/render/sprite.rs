@@ -55,7 +55,8 @@ impl Frame {
 }
 
 pub struct Sprite {
-    texture: *const Texture,
+    texture_manager: *mut TextureManager,
+    texture_index: i32,
     // TODO maybe frames should not be attached to the sprite like this.
     // Maybe frames should be attached to TextureManager or something??
     pub frames: Vec<Frame>,
@@ -67,14 +68,21 @@ impl Sprite {
     // So basically, please destroy all sprites before destroying the texture manager.
     pub fn new(tex_manager: &mut TextureManager, tex: &'static str) -> Sprite {
         Sprite {
-            texture: tex_manager.load(tex),
+            texture_manager: tex_manager,
+            texture_index: tex_manager.load(tex),
+
             frames: vec!(),
             buffer_pos: 0
         }
     }
 
-    pub fn texture_ref(&self) -> &Texture {
-        unsafe { &*self.texture }
+    pub unsafe fn texture(&self) -> Option(*const Texture) {
+        if self.texture_index < 0 { return None }
+
+        match (*self.texture_manager).textures[self.texture_index] {
+            (_, ref texture) => Some(texture),
+            _ => None
+        }
     }
 
     pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
@@ -126,6 +134,7 @@ impl Sprite {
     }
 }
 
+/*
 impl Clone for Sprite {
     fn clone(&self) -> Sprite {
         Sprite {
@@ -136,4 +145,5 @@ impl Clone for Sprite {
         }
     }
 }
+*/
 
