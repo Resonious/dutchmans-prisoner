@@ -9,6 +9,7 @@ extern crate cgmath;
 use cgmath::*;
 use gl::types::*;
 use std::vec::Vec;
+use std::ptr;
 use render::texture::{Texture, TextureManager};
 
 // pub struct Texcoord {
@@ -24,13 +25,12 @@ pub struct Frame {
     position: Vector2<f32>,
     size: Vector2<f32>,
 
-    texture: *const Texture,
     texcoords: Texcoords
 }
 
 impl Frame {
-    pub fn generate_texcoords(&mut self) {
-        let tex_width = unsafe { (*self.texture).width } as f32;
+    pub fn generate_texcoords(&mut self, texture: &Texture) {
+        let tex_width = texture.width as f32;
         let position  = self.position;
         let size      = self.size;
 
@@ -55,14 +55,15 @@ impl Frame {
 }
 
 pub struct Sprite {
-    texture_manager: *mut TextureManager,
-    texture_index: i32,
+    pub texture_manager: *mut TextureManager,
+    pub texture_index: uint,
     // TODO maybe frames should not be attached to the sprite like this.
     // Maybe frames should be attached to TextureManager or something??
     pub frames: Vec<Frame>,
 
     pub buffer_pos: i32
 }
+
 
 impl Sprite {
     // So basically, please destroy all sprites before destroying the texture manager.
@@ -76,31 +77,50 @@ impl Sprite {
         }
     }
 
-    pub unsafe fn texture(&self) -> Option(*const Texture) {
-        if self.texture_index < 0 { return None }
+    pub fn texture(&self) -> Option<*const Texture> {
+        // if self.texture_index < 0 { return None }
+        if self.texture_manager == ptr::null_mut()
+            { return None; }
 
-        match (*self.texture_manager).textures[self.texture_index] {
-            (_, ref texture) => Some(texture),
-            _ => None
+        unsafe {
+            let texture_manager = &*self.texture_manager;
+
+            match texture_manager.textures[self.texture_index] {
+                (_, ref texture) => Some(texture as *const Texture),
+            }
         }
     }
 
-    pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
+    #[inline]
+    fn add_frame_to_tex(&mut self, x: f32, y: f32,
+                        width: f32, height: f32, texture: &Texture) {
         self.frames.push(
             Frame {
                 position: Vector2::<f32>::new(x, y),
                 size: Vector2::<f32>::new(width, height),
-                texture: self.texture,
                 texcoords: [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
             }
         );
         let &mut frame = &self.frames[self.frames.len() - 1];
-        frame.generate_texcoords();
+        frame.generate_texcoords(texture);
+    }
+
+    pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) -> bool {
+        let texture = match self.texture() {
+            Some(tex) => unsafe { &*tex },
+            None      => return false
+        };
+
+        self.add_frame_to_tex(x, y, width, height, texture);
+        true
     }
 
     pub fn add_frames(&mut self, count: i16, width: f32, height: f32) {
-        let texture    = unsafe { &*self.texture };
-        let tex_width  = texture.width as f32;
+        let texture = match self.texture() {
+            Some(tex) => unsafe { &*tex },
+            None      => return
+        };
+        let tex_width  = texture.width  as f32;
         let tex_height = texture.height as f32;
 
         let mut current_pos = Vector2::<f32>::new(0.0, 0.0);
@@ -118,7 +138,7 @@ impl Sprite {
                 );
             }
 
-            self.add_frame(current_pos.x, current_pos.y, width, height);
+            self.add_frame_to_tex(current_pos.x, current_pos.y, width, height, texture);
 
             current_pos.x += width;
             counter += 1;

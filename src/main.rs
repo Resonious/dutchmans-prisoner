@@ -12,10 +12,10 @@ use glfw::Context;
 use render::shader;
 use render::texture;
 use render::texture::TextureManager;
-use render::sprite::Sprite;
+// use render::sprite::Sprite;
 use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
-use std::rc::{mod, Rc};
+// use std::rc::{Rc};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
@@ -207,6 +207,33 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 }
 
 fn test_texture_manager_and_sprites() {
+    println!("==== Testing texture manager stuff ====\n");
+    let mut texture_manager = TextureManager::new();
+
+    let texture_index = texture_manager.load("testtex.png");
+    println!("Our index is {}", texture_index);
+
+    let same_index = texture_manager.load("testtex.png");
+    println!("New index is {}. Should be equal to {}", texture_index, same_index);
+
+    let next_index = texture_manager.load("zero-zero.png");
+    println!("Next index is {}\n", next_index);
+
+    println!("==== Display list time.... ====\n");
+
+    let mut display_list = DisplayList::new(&mut texture_manager);
+    let maybe_sprite = display_list.insert_sprite("testtex.png");
+
+    match maybe_sprite {
+        Some(sprite) => {
+            println!("I've received the sprite! Its texture index is {}",
+                     sprite.texture_index);
+        }
+        None => {
+            println!("It didn't work! The sprite was not added!");
+        }
+    }
+
     /*
     println!("==== Testing texture manager and sprites! ====\n");
     let mut texture_manager = TextureManager::new();

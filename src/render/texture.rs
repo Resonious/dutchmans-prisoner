@@ -35,7 +35,7 @@ impl Texture {
 }
 
 pub struct TextureManager {
-    textures: Vec<(&'static str, Texture)>
+    pub textures: Vec<(&'static str, Texture)>
 }
 
 impl TextureManager {
@@ -45,7 +45,7 @@ impl TextureManager {
 
     // If the texture with the given file name is present, return
     // the index of the texture.
-    pub fn load(&mut self, filename: &'static str) -> i32 {
+    pub fn load(&mut self, filename: &'static str) -> uint {
         let mut textures = &mut self.textures;
 
         let mut count = 0;
@@ -85,6 +85,9 @@ impl TextureManager {
     }
 
     pub fn unload_at(&mut self, index: uint) -> bool {
+        panic!("Hey this function might suck because it changes the index by removing from the vector");
+
+        /*
         match self.textures.remove(index) {
             Some( (_, mut texture) ) => {
                 texture.unload();
@@ -92,6 +95,7 @@ impl TextureManager {
             }
             None => false
         }
+        */
     }
 }
 
