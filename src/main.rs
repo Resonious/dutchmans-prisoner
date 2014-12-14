@@ -12,7 +12,7 @@ use glfw::Context;
 use render::shader;
 use render::texture;
 use render::texture::TextureManager;
-// use render::sprite::Sprite;
+use render::sprite::Sprite;
 use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
 // use std::rc::{Rc};
@@ -211,65 +211,42 @@ fn test_texture_manager_and_sprites() {
     let mut texture_manager = TextureManager::new();
 
     let texture_index = texture_manager.load("testtex.png");
-    println!("Our index is {}", texture_index);
+    println!("Our texture's index is {}", texture_index);
 
     let same_index = texture_manager.load("testtex.png");
-    println!("New index is {}. Should be equal to {}", texture_index, same_index);
+    println!("New texture's index is {}. Should be equal to {}", texture_index, same_index);
 
     let next_index = texture_manager.load("zero-zero.png");
-    println!("Next index is {}\n", next_index);
+    println!("Index of new image texture is {}\n", next_index);
 
     println!("==== Display list time.... ====\n");
 
-    let mut display_list = DisplayList::new(&mut texture_manager);
-    let maybe_sprite = display_list.insert_sprite("testtex.png");
+    let mut sprite_space = [Sprite::blank(), ..50];
+    println!("Now we have sprice space! {}", sprite_space.len());
+    let mut display_list = DisplayList::new(&mut texture_manager, sprite_space.slice_mut(5, 35));
+    println!("Now display list! {}", display_list.sprites.len());
 
-    match maybe_sprite {
-        Some(sprite) => {
-            println!("I've received the sprite! Its texture index is {}",
-                     sprite.texture_index);
-        }
-        None => {
-            println!("It didn't work! The sprite was not added!");
-        }
+    // let mut sprite = match display_list.insert_sprite("zero-zero.png") {
+    //     Some(s) => s,
+    //     None => panic!("Could not insert sprite!")
+    // };
+    let mut sprite = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
+    println!("our new sprite has the texture index of {}", sprite.texture_index);
+
+    match sprite.texture() {
+        Some(texture) => unsafe {
+            println!("and its texture's filename is {}", (*texture).filename)
+        },
+        None => panic!("COULD NOT GET TEXTURE FROM SPRITE")
     }
 
-    /*
-    println!("==== Testing texture manager and sprites! ====\n");
-    let mut texture_manager = TextureManager::new();
+    // let mut sprite2 = match display_list.insert_sprite("zero-zero.png") {
+    //     Some(s) => s,
+    //     None => panic!("Why oh why can I not add another sprite")
+    // };
+    let mut sprite2 = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
 
-    let texture_ptr = texture_manager.load("testtex.png");
-    let texture = unsafe { &*texture_ptr };
-    println!("So, our texture is at {} and is {} x {}", texture.id, texture.width, texture.height);
-
-    let same_texture_ptr = texture_manager.load("testtex.png");
-    let same_texture = unsafe { &*same_texture_ptr };
-    println!("Grabbing it again, we have {}: {} x {}", same_texture.id, same_texture.width, same_texture.height);
-
-    println!("Now going to unload that shit");
-    texture_manager.unload("testtex.png");
-
-    println!("Now we try again");
-    let texture_ptr = texture_manager.load("testtex.png");
-    let texture = unsafe { &*texture_ptr };
-    println!("So, our texture is at {} and is {} x {}", texture.id, texture.width, texture.height);
-
-    println!("\n================ Now onto sprites... =================\n");
-
-    let mut sprite = Rc::new(Sprite::new(&mut texture_manager, "testtex.png"));
-    sprite.add_frames(9, 64.0, 64.0);
-    sprite.print_frames();
-
-    println!("Looks good?");
-    println!("Now going to add it to a DisplayList\n");
-
-    let mut displaylist = DisplayList::new();
-    displaylist.add_sprite(sprite);
-
-    println!("==== Done testing texture manager and sprites! ====");
-    */
-
-    // FILL THIS SHIT IN
+    println!("Second sprite is in with texture index {}", sprite2.texture_index);
 }
 
 fn main() {

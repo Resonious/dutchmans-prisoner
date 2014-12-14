@@ -13,7 +13,8 @@ use asset;
 pub struct Texture {
     pub id: GLuint,
     pub width: i32,
-    pub height: i32
+    pub height: i32,
+    pub filename: &'static str
 }
 
 impl Texture {
@@ -35,7 +36,7 @@ impl Texture {
 }
 
 pub struct TextureManager {
-    pub textures: Vec<(&'static str, Texture)>
+    pub textures: Vec<Texture>
 }
 
 impl TextureManager {
@@ -50,19 +51,17 @@ impl TextureManager {
 
         let mut count = 0;
         for item in textures.iter() {
-            match *item {
-                (ref tex_filename, _) =>
-                    if *tex_filename == filename
-                        { return count }
-                    else
-                        { count += 1 }
+            if item.filename == filename {
+                // println!("(TextureManager) found it!");
+                return count;
             }
+            else
+                { count += 1 }
         }
 
-        let tex   = load_texture(filename);
         let index = textures.len();
-
-        textures.push( (filename, tex) );
+        textures.push(load_texture(filename));
+        // println!("(TextureManager) made it!");
         return index;
     }
 
@@ -72,13 +71,10 @@ impl TextureManager {
         let mut index = 0;
 
         for item in self.textures.iter() {
-            match *item {
-                (ref tex_filename, _) =>
-                    if *tex_filename == filename
-                        { break }
-                    else
-                        { index += 1 }
-            }
+            if item.filename == filename
+                { break }
+            else
+                { index += 1 }
         }
 
         self.unload_at(index)
@@ -102,7 +98,7 @@ impl TextureManager {
 // Load a texture from the given filename into the GPU
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
-pub fn load_texture(filename: &str) -> Texture {
+pub fn load_texture(filename: &'static str) -> Texture {
     let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
     // println!("dimensions of {}: {}", filename, image.dimensions());
     let (width, height) = (image.width as i32, image.height as i32);
@@ -133,7 +129,8 @@ pub fn load_texture(filename: &str) -> Texture {
     Texture {
         id: tex_id,
         width: width,
-        height: height
+        height: height,
+        filename: filename
     }
 }
 

@@ -30,26 +30,27 @@ pub struct Frame {
 
 impl Frame {
     pub fn generate_texcoords(&mut self, texture: &Texture) {
-        let tex_width = texture.width as f32;
+        let tex_width  = texture.width as f32;
+        let tex_height = texture.height as f32;
         let position  = self.position;
         let size      = self.size;
 
         self.texcoords = [
             // Top right
             (position.x + size.x) / tex_width,
-            (position.y)          / tex_width,
+            (position.y)          / tex_height,
 
             // Bottom right
             (position.x + size.x) / tex_width,
-            (position.y + size.y) / tex_width,
+            (position.y + size.y) / tex_height,
 
             // Top left
             (position.x)          / tex_width,
-            (position.y)          / tex_width,
+            (position.y)          / tex_height,
 
             // Bottom left
             (position.x)          / tex_width,
-            (position.y + size.y) / tex_width
+            (position.y + size.y) / tex_height
         ];
     }
 }
@@ -57,10 +58,10 @@ impl Frame {
 pub struct Sprite {
     pub texture_manager: *mut TextureManager,
     pub texture_index: uint,
-    // TODO maybe frames should not be attached to the sprite like this.
-    // Maybe frames should be attached to TextureManager or something??
-    pub frames: Vec<Frame>,
+    // TODO gonna make frames attached to texturemanager
+    // pub frames: Vec<Frame>,
 
+    // TODO This isn't even used?
     pub buffer_pos: i32
 }
 
@@ -72,7 +73,16 @@ impl Sprite {
             texture_manager: tex_manager,
             texture_index: tex_manager.load(tex),
 
-            frames: vec!(),
+            // frames: vec!(),
+            buffer_pos: 0
+        }
+    }
+
+    pub fn blank() -> Sprite {
+        Sprite {
+            texture_manager: ptr::null_mut(),
+            texture_index: 0,
+            // frames: vec!(),
             buffer_pos: 0
         }
     }
@@ -83,14 +93,12 @@ impl Sprite {
             { return None; }
 
         unsafe {
-            let texture_manager = &*self.texture_manager;
-
-            match texture_manager.textures[self.texture_index] {
-                (_, ref texture) => Some(texture as *const Texture),
-            }
+            Some(&(*self.texture_manager).textures[self.texture_index] as *const Texture)
         }
     }
 
+    // TODO hiding this stuff for until we make frames a part of texturemanager
+    /*
     #[inline]
     fn add_frame_to_tex(&mut self, x: f32, y: f32,
                         width: f32, height: f32, texture: &Texture) {
@@ -152,18 +160,5 @@ impl Sprite {
             println!("Position: {}, size: {}", frame.position, frame.size);
         }
     }
+    */
 }
-
-/*
-impl Clone for Sprite {
-    fn clone(&self) -> Sprite {
-        Sprite {
-            texture: self.texture,
-            // For now, frames are not copied.
-            frames: vec!(),
-            buffer_pos: self.buffer_pos
-        }
-    }
-}
-*/
-
