@@ -50,9 +50,7 @@ impl<'d> DisplayList<'d> {
     }
 
     pub fn insert_sprite(&mut self, tex: &'static str) -> Option<*mut Sprite> {
-        let mut texture_manager_ptr = unsafe {
-            transmute::<_, &mut TextureManager>(self.texture_manager)
-        };
+        let mut texture_manager_ptr = unsafe { &mut*self.texture_manager };
         if self.add_sprite(Sprite::new(texture_manager_ptr, tex)) {
             Some(&mut self.sprites[self.sprite_count - 1] as *mut Sprite)
         }
