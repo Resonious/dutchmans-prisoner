@@ -61,6 +61,7 @@ pub struct Sprite {
     // TODO gonna make frames attached to texturemanager
     // pub frames: Vec<Frame>,
 
+    pub dirty: bool,
     // TODO This isn't even used?
     pub buffer_pos: i32
 }
@@ -72,6 +73,7 @@ impl Sprite {
         Sprite {
             texture_manager: tex_manager,
             texture_index: tex_manager.load(tex),
+            dirty: false,
 
             // frames: vec!(),
             buffer_pos: 0
@@ -82,6 +84,7 @@ impl Sprite {
         Sprite {
             texture_manager: ptr::null_mut(),
             texture_index: 0,
+            dirty: false,
             // frames: vec!(),
             buffer_pos: 0
         }

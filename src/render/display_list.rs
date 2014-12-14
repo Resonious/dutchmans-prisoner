@@ -37,6 +37,7 @@ impl<'d> DisplayList<'d> {
         }
     }
 
+    // Adds existing sprite data to the sprite buffer.
     pub fn add_sprite(&mut self, sprite: Sprite) -> bool {
         if self.sprite_count >= self.sprites.len() {
             println!("DisplayList ran out of room!");
@@ -49,6 +50,8 @@ impl<'d> DisplayList<'d> {
         }
     }
 
+    // Creates a new sprite with the given texture, and
+    // returns a pointer to it if it succeeds.
     pub fn insert_sprite(&mut self, tex: &'static str) -> Option<*mut Sprite> {
         let mut texture_manager_ptr = unsafe { &mut*self.texture_manager };
         if self.add_sprite(Sprite::new(texture_manager_ptr, tex)) {
@@ -56,50 +59,10 @@ impl<'d> DisplayList<'d> {
         }
         else { None }
     }
-
-    // pub fn add_sprite(&mut self, sprite: Sprite) -> bool {
-    //     let texture = match sprite.texture() {
-    //         Some(tex) => unsafe { transmute::<_, &Texture>(tex) },
-    //         None      => return false
-    //     };
-    //     let mut by_texture = &mut self.sprites_by_texture;
-    //     let by_texture_len = by_texture.len();
-    //     let texture_id     = texture.id as uint;
-
-    //     if texture_id >= by_texture_len {
-    //         println!("(displaylist) growing by {}", texture_id - by_texture_len + 1);
-    //         println!("(displaylist) sprite's texture id is {}, vector length is {}",
-    //                  texture_id, by_texture_len);
-    //         by_texture.grow(texture_id - by_texture_len + 1, Vec::with_capacity(0));
-    //     }
-
-    //     let mut sprite_list = &mut by_texture[texture_id];
-    //     sprite_list.push(sprite);
-    //     true
-    // }
-
-    // pub fn insert_sprite(&mut self, tex: &'static str) -> Option<&Sprite> {
-    //     let mut texture_manager_ptr = unsafe { transmute::<_, &mut TextureManager>(self.texture_manager) };
-    //     // let sprite_rc = Rc::new(Sprite::new(texture_manager_ptr, tex));
-
-    //     unsafe {
-    //         println!("(displaylist) I just made a sprite with texture_id {}",
-    //                  (*sprite_rc.texture().unwrap()).id);
-    //     }
-
-    //     if self.add_sprite(Sprite::new(texture_manager_ptr, tex))
-
-
-
-    //     if self.add_sprite(sprite_rc.clone())
-    //         { Some(sprite_rc.clone()) }
-    //     else
-    //         { None }
-    //
-    // }
 }
 
 impl<'d> Drop for DisplayList<'d> {
+    // Delete VAO associated with the display list.
     #![unsafe_destructor]
     fn drop(&mut self) {
         unsafe {
