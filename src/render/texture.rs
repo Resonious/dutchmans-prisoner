@@ -2,7 +2,9 @@ extern crate core;
 extern crate image;
 extern crate gl;
 extern crate libc;
+extern crate cgmath;
 
+use cgmath::*;
 use gl::types::*;
 use std::mem::transmute;
 use std::vec::Vec;
@@ -10,11 +12,103 @@ use self::image::{GenericImage, ImageBuffer};
 
 use asset;
 
+pub type Texcoords = [GLfloat, ..8];
+
+pub struct Frame {
+    position: Vector2<f32>,
+    size: Vector2<f32>,
+
+    texcoords: Texcoords
+}
+
+impl Frame {
+    pub fn generate_texcoords(&mut self, texture: &Texture) {
+        let tex_width  = texture.width as f32;
+        let tex_height = texture.height as f32;
+        let position  = self.position;
+        let size      = self.size;
+
+        self.texcoords = [
+            // Top right
+            (position.x + size.x) / tex_width,
+            (position.y)          / tex_height,
+
+            // Bottom right
+            (position.x + size.x) / tex_width,
+            (position.y + size.y) / tex_height,
+
+            // Top left
+            (position.x)          / tex_width,
+            (position.y)          / tex_height,
+
+            // Bottom left
+            (position.x)          / tex_width,
+            (position.y + size.y) / tex_height
+        ];
+    }
+}
+
+pub struct FrameSet {
+    pub frames: Vec<Frame>,
+    texture: *const Texture
+}
+
+impl FrameSet {
+    pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        self.frames.push(
+            Frame {
+                position: Vector2::<f32>::new(x, y),
+                size: Vector2::<f32>::new(width, height),
+                texcoords: [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+            }
+        );
+        let last_frame_index = self.frames.len() - 1;
+        let mut frame = &mut self.frames[last_frame_index];
+        frame.generate_texcoords(unsafe { &*self.texture });
+    }
+
+    pub fn add_frames(&mut self, count: i16, width: f32, height: f32) {
+        let texture = unsafe { &*self.texture };
+        let tex_width  = texture.width  as f32;
+        let tex_height = texture.height as f32;
+
+        let mut current_pos = Vector2::<f32>::new(0.0, 0.0);
+        let mut counter = 0;
+
+        loop {
+            if current_pos.x + width > tex_width {
+                current_pos.x = 0.0;
+                current_pos.y += height;
+            }
+            if current_pos.y + height > tex_height {
+                panic!(
+                    "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
+                    count, width, height, tex_width, tex_height
+                );
+            }
+
+            self.add_frame(current_pos.x, current_pos.y, width, height);
+
+            current_pos.x += width;
+            counter += 1;
+            if counter >= count { break }
+        }
+    }
+
+    // This is for debugging purposes only
+    pub fn print_frames(&self) {
+        for frame in self.frames.iter() {
+            println!("Position: {}, size: {}", frame.position, frame.size);
+        }
+    }
+}
+
 pub struct Texture {
     pub id: GLuint,
     pub width: i32,
     pub height: i32,
-    pub filename: &'static str
+    pub filename: &'static str,
+    pub frame_sets: Vec<FrameSet>
 }
 
 impl Texture {
@@ -28,6 +122,7 @@ impl Texture {
         }
     }
 
+    // TODO man, should this be a destructor?
     pub fn unload(&mut self) {
         unsafe {
             gl::DeleteTextures(1, &self.id);
@@ -134,7 +229,8 @@ pub fn load_texture(filename: &'static str) -> Texture {
         id: tex_id,
         width: width,
         height: height,
-        filename: filename
+        filename: filename,
+        frame_sets: vec![]
     }
 }
 
