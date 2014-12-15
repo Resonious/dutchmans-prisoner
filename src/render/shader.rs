@@ -2,7 +2,6 @@ extern crate gl;
 extern crate core;
 extern crate libc;
 
-extern crate native;
 use gl::types::*;
 use std::ptr;
 

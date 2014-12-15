@@ -1,12 +1,12 @@
-extern crate native;
 extern crate core;
-extern crate lodepng;
+extern crate image;
 extern crate gl;
 extern crate libc;
 
 use gl::types::*;
 use std::mem::transmute;
 use std::vec::Vec;
+use self::image::{GenericImage, ImageBuffer};
 
 use asset;
 
@@ -99,9 +99,12 @@ impl TextureManager {
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
 pub fn load_texture(filename: &'static str) -> Texture {
-    let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
+    // let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
     // println!("dimensions of {}: {}", filename, image.dimensions());
-    let (width, height) = (image.width as i32, image.height as i32);
+    // let (width, height) = (image.width as i32, image.height as i32);
+
+    let img = image::open(&asset::path(filename)).unwrap();
+    let (width, height) = match img.dimensions() { (w, h) => (w as i32, h as i32) };
 
     let mut tex_id: GLuint = 0;
 
@@ -116,7 +119,8 @@ pub fn load_texture(filename: &'static str) -> Texture {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
 
-        let buf = image.buffer.as_slice();
+        let rgba = img.to_rgba();
+        let buf = rgba.as_slice();
 
         println!("Sending {} to GPU. Width: {} Height: {}", filename, width, height);
         gl::TexImage2D(

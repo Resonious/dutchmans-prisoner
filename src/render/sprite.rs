@@ -1,4 +1,3 @@
-extern crate native;
 extern crate core;
 extern crate libc;
 
@@ -55,6 +54,7 @@ impl Frame {
     }
 }
 
+#[deriving(Copy)]
 pub struct Sprite {
     pub texture_manager: *mut TextureManager,
     pub texture_index: uint,

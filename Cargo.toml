@@ -14,5 +14,5 @@ default-features = false
 [dependencies.cgmath]
 git = "https://github.com/bjz/cgmath-rs"
 
-[dependencies.lodepng]
-git = "https://github.com/pornel/lodepng-rust.git"
+[dependencies.image]
+git = "https://github.com/PistonDevelopers/image"

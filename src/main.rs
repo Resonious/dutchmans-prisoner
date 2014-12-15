@@ -1,5 +1,4 @@
 #![feature(globs, macro_rules, unsafe_destructor)]
-extern crate native;
 extern crate core;
 extern crate libc;
 
@@ -7,7 +6,7 @@ extern crate glfw;
 extern crate gl;
 extern crate cgmath;
 
-use glfw::Context;
+use glfw::{Context, Action, Key};
 
 use render::shader;
 use render::texture;
@@ -151,32 +150,32 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
         for (_, event) in glfw::flush_messages(event) {
             match event {
-                glfw::KeyEvent(glfw::KeyEscape, _, glfw::Press, _) => {
+                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                     window.set_should_close(true)
                 }
 
-                glfw::KeyEvent(glfw::KeyUp, _, press, _) => 
-                    if press != glfw::Release {
+                glfw::WindowEvent::Key(Key::Up, _, press, _) => 
+                    if press != Action::Release {
                         cam_pos.y += 10.0;
                         println!("Cam is at {}", cam_pos);
                     },
-                glfw::KeyEvent(glfw::KeyDown, _, press, _) => 
-                    if press != glfw::Release {
+                glfw::WindowEvent::Key(Key::Down, _, press, _) => 
+                    if press != Action::Release {
                         cam_pos.y -= 10.0;
                         println!("Cam is at {}", cam_pos);
                     },
-                glfw::KeyEvent(glfw::KeyRight, _, press, _) => 
-                    if press != glfw::Release {
+                glfw::WindowEvent::Key(Key::Right, _, press, _) => 
+                    if press != Action::Release {
                         cam_pos.x += 10.0;
                         println!("Cam is at {}", cam_pos);
                     },
-                glfw::KeyEvent(glfw::KeyLeft, _, press, _) => 
-                    if press != glfw::Release {
+                glfw::WindowEvent::Key(Key::Left, _, press, _) => 
+                    if press != Action::Release {
                         cam_pos.x -= 10.0;
                         println!("Cam is at {}", cam_pos);
                     },
 
-                glfw::SizeEvent(width, height) => unsafe {
+                glfw::WindowEvent::Size(width, height) => unsafe {
                     println!("screen is now {} x {}", width, height);
                     gl::Viewport(0, 0, width, height);
                     gl::Uniform2f(screen_size_uniform, width as f32, height as f32);
@@ -253,7 +252,7 @@ fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
     let (window, event) = glfw
-        .create_window(480, 480, "Crattle Crute maybe?", glfw::Windowed)
+        .create_window(480, 480, "Crattle Crute maybe?", glfw::WindowMode::Windowed)
         .expect("Failed to create window!");
 
     window.set_key_polling(true);
