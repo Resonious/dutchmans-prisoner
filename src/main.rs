@@ -232,7 +232,7 @@ fn test_texture_manager_and_sprites() {
     let mut display_list = DisplayList::new(&mut texture_manager, sprite_space.slice_mut(5, 35));
     println!("Now display list! {}", display_list.sprites.len());
 
-    let mut sprite = unsafe { &*display_list.insert_sprite("testtex.png").unwrap() };
+    let sprite = unsafe { &*display_list.insert_sprite("testtex.png").unwrap() };
     println!("our new sprite has the texture index of {}", sprite.texture_index);
     match sprite.frames() {
         Some(frames) => {
@@ -248,7 +248,7 @@ fn test_texture_manager_and_sprites() {
         None => panic!("COULD NOT GET TEXTURE FROM SPRITE")
     }
 
-    let mut sprite2 = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
+    let sprite2 = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
 
     println!("Second sprite is in with texture index {}", sprite2.texture_index);
 }

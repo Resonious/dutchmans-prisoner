@@ -14,10 +14,12 @@ use asset;
 
 pub type Texcoords = [GLfloat, ..8];
 
+// Represents an animation frame; a square section of a Texture.
 pub struct Frame {
     pub position: Vector2<f32>,
     pub size: Vector2<f32>,
 
+    // Texcoords are generated via generate_texcoords.
     pub texcoords: Texcoords
 }
 
@@ -56,6 +58,7 @@ pub struct FrameSet {
 }
 
 impl FrameSet {
+    // Manually add a frame at the given x, y, width, and height.
     pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
         self.frames.push(
             Frame {
@@ -69,6 +72,8 @@ impl FrameSet {
         frame.generate_texcoords(unsafe { &*self.texture });
     }
 
+    // Add <count> <width>x<height> frames, starting from top left, going
+    // right and then down.
     pub fn add_frames(&mut self, count: uint, width: f32, height: f32) {
         let texture = unsafe { &*self.texture };
         let tex_width  = texture.width  as f32;
@@ -105,6 +110,7 @@ impl FrameSet {
     }
 }
 
+// Represents an actual texture that is currently on the GPU.
 pub struct Texture {
     pub id: GLuint,
     pub width: i32,
@@ -147,6 +153,7 @@ impl Texture {
     }
 }
 
+// Makes sure the same texture is never loaded twice.
 pub struct TextureManager {
     pub textures: Vec<Texture>
 }
@@ -250,4 +257,3 @@ pub fn load_texture(filename: &'static str) -> Texture {
         frame_sets: vec![]
     }
 }
-

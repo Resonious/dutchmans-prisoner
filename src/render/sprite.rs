@@ -8,19 +8,18 @@ extern crate cgmath;
 use std::ptr;
 use render::texture::{Texture, TextureManager, Frame};
 
-// pub struct Texcoord {
-//     top_right:    Vector2<GLfloat>,
-//     bottom_right: Vector2<GLfloat>,
-//     top_left:     Vector2<GLfloat>,
-//     bottom_left:  Vector2<GLfloat>
-// }
-
 #[deriving(Copy)]
 pub struct Sprite {
+    // === Crazy internal stuff ===
     pub texture_manager: *mut TextureManager,
     pub texture_index: uint,
     pub frame_set_index: uint,
 
+    // TODO do we want dirty?
+    // Do we want the physics component or whatever to sync its position
+    // with sprite, which syncs its position with the buffer?
+    // Or do we want a function that directly sends a position/rotation/
+    // whatever to gpu, so that physics can say 'ok use my stuff'
     pub dirty: bool,
     // TODO This isn't even used?
     pub buffer_pos: i32
@@ -58,7 +57,8 @@ impl Sprite {
             { return None; }
 
         unsafe {
-            Some(&(*self.texture_manager).textures[self.texture_index] as *const Texture)
+            let texture_manager = &*self.texture_manager;
+            Some(&texture_manager.textures[self.texture_index] as *const Texture)
         }
     }
 
