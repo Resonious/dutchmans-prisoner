@@ -212,6 +212,13 @@ fn test_texture_manager_and_sprites() {
     let texture_index = texture_manager.load("testtex.png");
     println!("Our texture's index is {}", texture_index);
 
+    {
+        let mut texture = &mut texture_manager.textures[texture_index];
+        texture.generate_frames(3, 32.0, 32.0);
+        println!("Generated default frames for {}:", texture.filename);
+        texture.frame_sets[0].print_frames();
+    }
+
     let same_index = texture_manager.load("testtex.png");
     println!("New texture's index is {}. Should be equal to {}", texture_index, same_index);
 
@@ -225,12 +232,14 @@ fn test_texture_manager_and_sprites() {
     let mut display_list = DisplayList::new(&mut texture_manager, sprite_space.slice_mut(5, 35));
     println!("Now display list! {}", display_list.sprites.len());
 
-    // let mut sprite = match display_list.insert_sprite("zero-zero.png") {
-    //     Some(s) => s,
-    //     None => panic!("Could not insert sprite!")
-    // };
-    let mut sprite = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
+    let mut sprite = unsafe { &*display_list.insert_sprite("testtex.png").unwrap() };
     println!("our new sprite has the texture index of {}", sprite.texture_index);
+    match sprite.frames() {
+        Some(frames) => {
+            println!("Texcoords for first frame: {}", frames[0].texcoords);
+        }
+        None => panic!("COULD NOT GET FRAMES FROM SPRITE")
+    }
 
     match sprite.texture() {
         Some(texture) => unsafe {
@@ -239,10 +248,6 @@ fn test_texture_manager_and_sprites() {
         None => panic!("COULD NOT GET TEXTURE FROM SPRITE")
     }
 
-    // let mut sprite2 = match display_list.insert_sprite("zero-zero.png") {
-    //     Some(s) => s,
-    //     None => panic!("Why oh why can I not add another sprite")
-    // };
     let mut sprite2 = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
 
     println!("Second sprite is in with texture index {}", sprite2.texture_index);

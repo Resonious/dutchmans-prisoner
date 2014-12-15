@@ -15,10 +15,10 @@ use asset;
 pub type Texcoords = [GLfloat, ..8];
 
 pub struct Frame {
-    position: Vector2<f32>,
-    size: Vector2<f32>,
+    pub position: Vector2<f32>,
+    pub size: Vector2<f32>,
 
-    texcoords: Texcoords
+    pub texcoords: Texcoords
 }
 
 impl Frame {
