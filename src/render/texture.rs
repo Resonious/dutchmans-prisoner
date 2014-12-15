@@ -8,7 +8,7 @@ use cgmath::*;
 use gl::types::*;
 use std::mem::transmute;
 use std::vec::Vec;
-use self::image::{GenericImage, ImageBuffer};
+use self::image::{GenericImage};
 
 use asset;
 
@@ -50,7 +50,9 @@ impl Frame {
 
 pub struct FrameSet {
     pub frames: Vec<Frame>,
-    texture: *const Texture
+    // NOTE This is only mut because *const currently cannot coerce to *mut
+    // cleanly and this isn't really a sensitive part of the code.
+    texture: *mut Texture
 }
 
 impl FrameSet {
@@ -67,7 +69,7 @@ impl FrameSet {
         frame.generate_texcoords(unsafe { &*self.texture });
     }
 
-    pub fn add_frames(&mut self, count: i16, width: f32, height: f32) {
+    pub fn add_frames(&mut self, count: uint, width: f32, height: f32) {
         let texture = unsafe { &*self.texture };
         let tex_width  = texture.width  as f32;
         let tex_height = texture.height as f32;
@@ -120,6 +122,21 @@ impl Texture {
             gl::Uniform1i(sampler_uniform, 0);
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
         }
+    }
+
+    // Generates a frame set with the given parameters, and returns its index.
+    // The first frame set generated will be the default.
+    pub fn generate_frames(&mut self, count: uint, width: f32, height: f32) -> uint {
+        let index = self.frame_sets.len();
+        self.frame_sets.push(
+            FrameSet {
+                frames: Vec::with_capacity(count),
+                texture: self
+            }
+        );
+        let frame_set = &mut self.frame_sets[index];
+        frame_set.add_frames(count, width, height);
+        index
     }
 
     // TODO man, should this be a destructor?

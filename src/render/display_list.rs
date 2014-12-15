@@ -7,8 +7,8 @@ extern crate cgmath;
 
 use render::sprite::Sprite;
 use gl::types::*;
-use std::mem::transmute;
-use render::texture::{Texture, TextureManager};
+// use std::mem::transmute;
+use render::texture::{TextureManager};
 
 pub struct DisplayList<'d> {
     vao: GLuint,
@@ -69,4 +69,3 @@ impl<'d> Drop for DisplayList<'d> {
         }
     }
 }
-
