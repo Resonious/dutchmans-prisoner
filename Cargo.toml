@@ -11,8 +11,8 @@ git = "https://github.com/bjz/gl-rs"
 git = "https://github.com/bjz/glfw-rs"
 default-features = false
 
-[dependencies.cgmath]
-git = "https://github.com/bjz/cgmath-rs"
-
 [dependencies.image]
 git = "https://github.com/PistonDevelopers/image"
+
+[dependencies.cgmath]
+git = "https://github.com/bjz/cgmath-rs"

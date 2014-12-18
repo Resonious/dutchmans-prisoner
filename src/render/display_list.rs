@@ -5,19 +5,23 @@ extern crate glfw;
 extern crate gl;
 extern crate cgmath;
 
+/*
+
 use render::sprite::Sprite;
 use gl::types::*;
-// use std::mem::transmute;
 use render::texture::{TextureManager};
 use std::mem::{transmute, replace};
+use std::ptr;
 
 pub struct DisplayList<'d> {
     vao: GLuint,
     texture_manager: *mut TextureManager,
-    // sprites_by_texture: Vec<Vec<Sprite>>,
     pub sprites: &'d mut[Sprite],
     pub unused_indices: Vec<uint>,
-    pub sprite_count: uint
+    pub sprite_count: uint,
+
+    // Indexed by texture ID!
+    pub buffer_objects: Vec<GLuint>
 }
 
 impl<'d> DisplayList<'d> {
@@ -31,10 +35,11 @@ impl<'d> DisplayList<'d> {
             DisplayList {
                 vao: vao,
                 texture_manager: texture_manager as *mut TextureManager,
-                // sprites_by_texture: vec!()
                 sprites: sprite_space,
                 unused_indices: vec!(),
-                sprite_count: 0
+                sprite_count: 0,
+
+                buffer_objects: vec!()
             }
         }
     }
@@ -68,6 +73,24 @@ impl<'d> DisplayList<'d> {
         }
         else { None }
     }
+
+    pub fn remove_sprite(&mut self, index: uint) {
+        let count = self.sprite_count;
+        if count >= index {
+            println!("DisplayList cannot delete at index {}!", index);
+            return;
+        }
+
+        if index == count - 1 {
+            self.sprite_count -= 1;
+        } else {
+            self.unused_indices.push(index);
+        }
+
+        self.sprites[index].texture_manager = ptr::null_mut();
+    }
+
+    // TODO make function to add attribute VBO
 }
 
 impl<'d> Drop for DisplayList<'d> {
@@ -79,3 +102,5 @@ impl<'d> Drop for DisplayList<'d> {
         }
     }
 }
+
+*/

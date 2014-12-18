@@ -165,14 +165,14 @@ impl TextureManager {
 
     // If the texture with the given file name is present, return
     // the index of the texture.
-    pub fn load(&mut self, filename: &'static str) -> uint {
+    pub fn load(&mut self, filename: &'static str) -> *const Texture {
         let mut textures = &mut self.textures;
 
-        let mut count = 0;
+        let mut count = 0u32;
         for item in textures.iter() {
             if item.filename == filename {
                 // println!("(TextureManager) found it!");
-                return count;
+                return item;
             }
             else
                 { count += 1 }
@@ -181,7 +181,7 @@ impl TextureManager {
         let index = textures.len();
         textures.push(load_texture(filename));
         // println!("(TextureManager) made it!");
-        return index;
+        return &textures[index];
     }
 
     // Unload texture with the given name. Returns true if it

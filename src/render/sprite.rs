@@ -8,6 +8,8 @@ extern crate cgmath;
 use std::ptr;
 use render::texture::{Texture, TextureManager, Frame};
 
+/*
+
 #[deriving(Copy)]
 pub struct Sprite {
     // === Crazy internal stuff ===
@@ -15,12 +17,6 @@ pub struct Sprite {
     pub texture_index: uint,
     pub frame_set_index: uint,
 
-    // TODO do we want dirty?
-    // Do we want the physics component or whatever to sync its position
-    // with sprite, which syncs its position with the buffer?
-    // Or do we want a function that directly sends a position/rotation/
-    // whatever to gpu, so that physics can say 'ok use my stuff'
-    pub dirty: bool,
     // TODO This isn't even used?
     pub buffer_pos: i32
 }
@@ -33,8 +29,6 @@ impl Sprite {
             texture_manager: tex_manager,
             texture_index: tex_manager.load(tex),
             frame_set_index: 0,
-            dirty: false,
-
             // frames: vec!(),
             buffer_pos: 0
         }
@@ -45,7 +39,6 @@ impl Sprite {
             texture_manager: ptr::null_mut(),
             texture_index: 0,
             frame_set_index: 0,
-            dirty: false,
             // frames: vec!(),
             buffer_pos: 0
         }
@@ -86,3 +79,5 @@ impl Sprite {
         panic!("Implement me or gtfo");
     }
 }
+
+*/

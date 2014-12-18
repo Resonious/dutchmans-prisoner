@@ -11,8 +11,8 @@ use glfw::{Context, Action, Key};
 use render::shader;
 use render::texture;
 use render::texture::TextureManager;
-use render::sprite::Sprite;
-use render::display_list::DisplayList;
+// use render::sprite::Sprite;
+// use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
 // use std::rc::{Rc};
 use gl::types::*;
@@ -38,6 +38,8 @@ macro_rules! gen_buffer(
         }
     )
 )
+        // gen_buffer!(vbo, vertices, ARRAY_BUFFER);
+
 
 macro_rules! as_void(
     ($val:expr) => (transmute::<_, *const c_void>($val))
@@ -89,17 +91,26 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         Vector2::<GLfloat>::new(0.0, 0.0)
     ];
 
-    let blob_positions = vec![
-        Vector2::<GLfloat>::new(600.0, -200.0),
-        Vector2::<GLfloat>::new(300.0, 100.0)
+    // let blob_positions = vec![
+    //     Vector2::<GLfloat>::new(600.0, -200.0),
+    //     Vector2::<GLfloat>::new(300.0, 100.0)
+    // ];
+
+    let crattle_positions = vec![
+        Vector2::<GLfloat>::new(200.0, 200.0)
     ];
+
+    let mut texture_manager = TextureManager::new();
+
+    let zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
+    let crattle_tex   = unsafe { &*texture_manager.load("crattle.png") };
 
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
     let mut ebo: GLuint = 0;
 
     let mut zero_zero_positions_vbo: GLuint = 0;
-    let mut blob_positions_vbo: GLuint = 0;
+    let mut crattle_positions_vbo: GLuint = 0;
 
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
@@ -108,7 +119,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         gen_buffer!(vbo, vertices, ARRAY_BUFFER);
         gen_buffer!(ebo, indices, ELEMENT_ARRAY_BUFFER);
         gen_buffer!(zero_zero_positions_vbo, zero_zero_positions, ARRAY_BUFFER);
-        gen_buffer!(blob_positions_vbo, blob_positions, ARRAY_BUFFER);
+        gen_buffer!(crattle_positions_vbo, crattle_positions, ARRAY_BUFFER);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::EnableVertexAttribArray(0);
@@ -129,7 +140,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let cam_pos_uniform     = unsafe { "cam_pos".with_c_str(|c| gl::GetUniformLocation(prog, c)) };
     let sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
-    let tex_uniform = unsafe { "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
+    let tex_uniform         = unsafe { "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
     unsafe {
         gl::Uniform2f(cam_pos_uniform, 0f32, 0f32);
         match window.get_size() {
@@ -138,12 +149,8 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     }
     let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
-    let test_tex = texture::load_texture("testtex.png");
-    let zero_zero_tex = texture::load_texture("zero-zero.png");
-    test_tex.set(tex_uniform, sprite_size_uniform);
-
     // Doing this here for now to make sure it compiles and stuff:
-    test_texture_manager_and_sprites();
+    // test_texture_manager_and_sprites();
 
     while !window.should_close() {
         glfw.poll_events();
@@ -195,16 +202,17 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             zero_zero_tex.set(tex_uniform, sprite_size_uniform);
             set_positions_attribute(zero_zero_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_positions.len() as i32);
-            // Draw blobs
-            test_tex.set(tex_uniform, sprite_size_uniform);
-            set_positions_attribute(blob_positions_vbo);
-            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), blob_positions.len() as i32);
+            // Draw CRATTLE!!!
+            crattle_tex.set(tex_uniform, sprite_size_uniform);
+            set_positions_attribute(crattle_positions_vbo);
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
         }
 
         window.swap_buffers();
     }
 }
 
+/*
 fn test_texture_manager_and_sprites() {
     println!("==== Testing texture manager stuff ====\n");
     let mut texture_manager = TextureManager::new();
@@ -252,6 +260,7 @@ fn test_texture_manager_and_sprites() {
 
     println!("Second sprite is in with texture index {}", sprite2.texture_index);
 }
+*/
 
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
