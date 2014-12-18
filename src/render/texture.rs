@@ -116,6 +116,7 @@ pub struct Texture {
     pub width: i32,
     pub height: i32,
     pub filename: &'static str,
+    // TODO Texture does not need to keep track of frame sets.
     pub frame_sets: Vec<FrameSet>
 }
 
