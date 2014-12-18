@@ -9,12 +9,14 @@ use render::sprite::Sprite;
 use gl::types::*;
 // use std::mem::transmute;
 use render::texture::{TextureManager};
+use std::mem::{transmute, replace};
 
 pub struct DisplayList<'d> {
     vao: GLuint,
     texture_manager: *mut TextureManager,
     // sprites_by_texture: Vec<Vec<Sprite>>,
     pub sprites: &'d mut[Sprite],
+    pub unused_indices: Vec<uint>,
     pub sprite_count: uint
 }
 
@@ -31,6 +33,7 @@ impl<'d> DisplayList<'d> {
                 texture_manager: texture_manager as *mut TextureManager,
                 // sprites_by_texture: vec!()
                 sprites: sprite_space,
+                unused_indices: vec!(),
                 sprite_count: 0
             }
         }
@@ -40,13 +43,20 @@ impl<'d> DisplayList<'d> {
     pub fn add_sprite(&mut self, sprite: Sprite) -> bool {
         if self.sprite_count >= self.sprites.len() {
             println!("DisplayList ran out of room!");
-            false
+            return false;
+        }
+
+        let mut unused = &mut self.unused_indices;
+        if unused.len() > 0 {
+            let index = unused.pop().unwrap();
+            replace(&mut self.sprites[index], sprite);
         }
         else {
-            self.sprites[self.sprite_count] = sprite;
+            replace(&mut self.sprites[self.sprite_count], sprite);
             self.sprite_count += 1;
-            true
         }
+
+        true
     }
 
     // Creates a new sprite with the given texture, and
