@@ -8,6 +8,7 @@ use cgmath::*;
 use gl::types::*;
 use std::mem::{size_of, transmute, uninitialized};
 use std::vec::Vec;
+use std::ptr;
 use self::image::{GenericImage};
 use gl::types::*;
 
@@ -78,17 +79,23 @@ impl Texture {
     }
 
     // This will assign the offset field to all its framesets.
-    // And assign the field in the texture.
-    pub fn generate_frames_vbo(&mut self) {
+    // And assign the frames vbo field in the texture.
+    pub fn generate_frames_vbo(&mut self) -> GLuint {
         // Create vbo
         unsafe {
             gl::GenBuffers(1, &mut self.frame_sets_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.frame_sets_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                self.total_frames_size() as GLsizeiptr,
+                ptr::null(),
+                gl::STATIC_DRAW
+            );
         }
         // Send the texcoords of every frame
         let mut frame_set_offset = 0i32;
-        for frame_set in self.frame_sets.iter_mut() {
-            frame_set.offset = frame_set_offset;
+        for frame_set in self.frame_sets.iter() {
+            assert_eq!(frame_set.offset, frame_set_offset);
 
             for frame in frame_set.frames.iter() {
                 unsafe {
@@ -102,14 +109,31 @@ impl Texture {
                 frame_set_offset += size_of::<Texcoords>() as i32;
             }
         }
+
+        self.frame_sets_vbo
     }
 
+    pub fn total_frames_size(&self) -> i32 {
+        let frame_set_len = self.frame_sets.len();
+
+        let last_frame_set   = &self.frame_sets[frame_set_len - 1];
+        let last_frames_size = last_frame_set.frames.len() * size_of::<Texcoords>();
+
+        last_frame_set.offset as i32 + last_frames_size as i32
+    }
+
+    // Just calls generate_frames. Also assigns frame set offset.
     pub fn add_frame_set<'t>(&'t mut self, count: uint, width: uint, height: uint) {
         let frames = generate_frames(self, count, width as f32, height as f32);
+        let frame_set_count = self.frame_sets.len();
+        let offset = if frame_set_count == 0 {
+                0
+            } else { self.total_frames_size() };
+
         self.frame_sets.push(
             FrameSet {
                 frames: frames,
-                offset: -1
+                offset: offset
             }
         );
     }
