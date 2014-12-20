@@ -6,9 +6,10 @@ extern crate cgmath;
 
 use cgmath::*;
 use gl::types::*;
-use std::mem::transmute;
+use std::mem::{size_of, transmute, uninitialized};
 use std::vec::Vec;
 use self::image::{GenericImage};
+use gl::types::*;
 
 use asset;
 
@@ -51,63 +52,8 @@ impl Frame {
 }
 
 pub struct FrameSet {
-    pub frames: Vec<Frame>,
-    // NOTE This is only mut because *const currently cannot coerce to *mut
-    // cleanly and this isn't really a sensitive part of the code.
-    texture: *mut Texture
-}
-
-impl FrameSet {
-    // Manually add a frame at the given x, y, width, and height.
-    pub fn add_frame(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        self.frames.push(
-            Frame {
-                position: Vector2::<f32>::new(x, y),
-                size: Vector2::<f32>::new(width, height),
-                texcoords: [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-            }
-        );
-        let last_frame_index = self.frames.len() - 1;
-        let mut frame = &mut self.frames[last_frame_index];
-        frame.generate_texcoords(unsafe { &*self.texture });
-    }
-
-    // Add <count> <width>x<height> frames, starting from top left, going
-    // right and then down.
-    pub fn add_frames(&mut self, count: uint, width: f32, height: f32) {
-        let texture = unsafe { &*self.texture };
-        let tex_width  = texture.width  as f32;
-        let tex_height = texture.height as f32;
-
-        let mut current_pos = Vector2::<f32>::new(0.0, 0.0);
-        let mut counter = 0;
-
-        loop {
-            if current_pos.x + width > tex_width {
-                current_pos.x = 0.0;
-                current_pos.y += height;
-            }
-            if current_pos.y + height > tex_height {
-                panic!(
-                    "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
-                    count, width, height, tex_width, tex_height
-                );
-            }
-
-            self.add_frame(current_pos.x, current_pos.y, width, height);
-
-            current_pos.x += width;
-            counter += 1;
-            if counter >= count { break }
-        }
-    }
-
-    // This is for debugging purposes only
-    pub fn print_frames(&self) {
-        for frame in self.frames.iter() {
-            println!("Position: {}, size: {}", frame.position, frame.size);
-        }
-    }
+    pub frames: Box<[Frame]>,
+    pub offset: i32
 }
 
 // Represents an actual texture that is currently on the GPU.
@@ -116,8 +62,8 @@ pub struct Texture {
     pub width: i32,
     pub height: i32,
     pub filename: &'static str,
-    // TODO Texture does not need to keep track of frame sets.
-    pub frame_sets: Vec<FrameSet>
+    pub frame_sets: Vec<FrameSet>,
+    pub frame_sets_vbo: GLuint
 }
 
 impl Texture {
@@ -131,19 +77,41 @@ impl Texture {
         }
     }
 
-    // Generates a frame set with the given parameters, and returns its index.
-    // The first frame set generated will be the default.
-    pub fn generate_frames(&mut self, count: uint, width: f32, height: f32) -> uint {
-        let index = self.frame_sets.len();
+    // This will assign the offset field to all its framesets.
+    // And assign the field in the texture.
+    pub fn generate_frames_vbo(&mut self) {
+        // Create vbo
+        unsafe {
+            gl::GenBuffers(1, &mut self.frame_sets_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.frame_sets_vbo);
+        }
+        // Send the texcoords of every frame
+        let mut frame_set_offset = 0i32;
+        for frame_set in self.frame_sets.iter_mut() {
+            frame_set.offset = frame_set_offset;
+
+            for frame in frame_set.frames.iter() {
+                unsafe {
+                    gl::BufferSubData(
+                        gl::ARRAY_BUFFER,
+                        frame_set_offset as i64,
+                        size_of::<Texcoords>() as i64,
+                        transmute(&frame.texcoords[0])
+                    );
+                }
+                frame_set_offset += size_of::<Texcoords>() as i32;
+            }
+        }
+    }
+
+    pub fn add_frame_set<'t>(&'t mut self, count: uint, width: uint, height: uint) {
+        let frames = generate_frames(self, count, width as f32, height as f32);
         self.frame_sets.push(
             FrameSet {
-                frames: Vec::with_capacity(count),
-                texture: self
+                frames: frames,
+                offset: -1
             }
         );
-        let frame_set = &mut self.frame_sets[index];
-        frame_set.add_frames(count, width, height);
-        index
     }
 
     // TODO man, should this be a destructor?
@@ -166,11 +134,11 @@ impl TextureManager {
 
     // If the texture with the given file name is present, return
     // the index of the texture.
-    pub fn load(&mut self, filename: &'static str) -> *const Texture {
+    pub fn load(&mut self, filename: &'static str) -> *mut Texture {
         let mut textures = &mut self.textures;
 
         let mut count = 0u32;
-        for item in textures.iter() {
+        for item in textures.iter_mut() {
             if item.filename == filename {
                 // println!("(TextureManager) found it!");
                 return item;
@@ -182,7 +150,7 @@ impl TextureManager {
         let index = textures.len();
         textures.push(load_texture(filename));
         // println!("(TextureManager) made it!");
-        return &textures[index];
+        return &mut textures[index];
     }
 
     // Unload texture with the given name. Returns true if it
@@ -219,10 +187,6 @@ impl TextureManager {
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
 pub fn load_texture(filename: &'static str) -> Texture {
-    // let image = lodepng::decode32_file(&asset::path(filename)).unwrap();
-    // println!("dimensions of {}: {}", filename, image.dimensions());
-    // let (width, height) = (image.width as i32, image.height as i32);
-
     let img = image::open(&asset::path(filename)).unwrap();
     let (width, height) = match img.dimensions() { (w, h) => (w as i32, h as i32) };
 
@@ -255,6 +219,38 @@ pub fn load_texture(filename: &'static str) -> Texture {
         width: width,
         height: height,
         filename: filename,
-        frame_sets: vec![]
+        frame_sets: vec![],
+        frame_sets_vbo: 0
     }
+}
+
+pub fn generate_frames<'t>(texture: &'t Texture, count: uint, width: f32, height: f32) -> Box<[Frame]> {
+    let tex_width  = texture.width as f32;
+    let tex_height = texture.height as f32;
+
+    let mut current_pos = Vector2::<f32>::new(0.0, 0.0);
+
+    Vec::from_fn(count, |_| {
+        if current_pos.x + width > tex_width {
+            current_pos.x = 0.0;
+            current_pos.y += height;
+        }
+        if current_pos.y + height > tex_height {
+            panic!(
+                "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
+                count, width, height, tex_width, tex_height
+            );
+        }
+
+        let mut frame = Frame {
+            position:  current_pos,
+            size:      Vector2::new(width, height),
+            texcoords: unsafe { uninitialized() }
+        };
+        frame.generate_texcoords(texture);
+
+        current_pos.x += width;
+
+        frame
+    }).into_boxed_slice()
 }

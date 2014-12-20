@@ -67,6 +67,14 @@ fn set_positions_attribute(vbo: GLuint) {
     }
 }
 
+// TODO Not sure how to handle texcoords! Maybe they will be
+// in another attribute, with an index in the "Sprite".
+struct Sprite {
+    position: Vector2<GLfloat>,
+    frame_set_index: GLint,
+    frame: GLint
+}
+
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let vertices: [GLfloat, ..16] = [
     //    position
@@ -102,8 +110,12 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
     let mut texture_manager = TextureManager::new();
 
-    let zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
-    let crattle_tex   = unsafe { &*texture_manager.load("crattle.png") };
+    let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
+    let mut crattle_tex   = unsafe { &mut*texture_manager.load("crattle.png") };
+    crattle_tex.add_frame_set(9, 97, 101);
+    crattle_tex.generate_frames_vbo();
+
+    // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
 
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
