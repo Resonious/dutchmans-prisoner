@@ -11,10 +11,16 @@ use std::vec::Vec;
 use std::ptr;
 use self::image::{GenericImage};
 use gl::types::*;
+use render::shader;
 
 use asset;
 
-pub type Texcoords = [GLfloat, ..8];
+pub struct Texcoords {
+    pub top_right:    Vector2<GLfloat>,
+    pub bottom_right: Vector2<GLfloat>,
+    pub top_left:     Vector2<GLfloat>,
+    pub bottom_left:  Vector2<GLfloat>
+}
 
 // Represents an animation frame; a square section of a Texture.
 pub struct Frame {
@@ -32,23 +38,27 @@ impl Frame {
         let position  = self.position;
         let size      = self.size;
 
-        self.texcoords = [
-            // Top right
-            (position.x + size.x) / tex_width,
-            (position.y)          / tex_height,
+        self.texcoords = Texcoords {
+            top_right: Vector2::new(
+                (position.x + size.x) / tex_width,
+                (position.y)          / tex_height
+            ),
 
-            // Bottom right
-            (position.x + size.x) / tex_width,
-            (position.y + size.y) / tex_height,
+            bottom_right: Vector2::new(
+                (position.x + size.x) / tex_width,
+                (position.y + size.y) / tex_height
+            ),
 
-            // Top left
-            (position.x)          / tex_width,
-            (position.y)          / tex_height,
+            top_left: Vector2::new(
+                (position.x)          / tex_width,
+                (position.y)          / tex_height
+            ),
 
-            // Bottom left
-            (position.x)          / tex_width,
-            (position.y + size.y) / tex_height
-        ];
+            bottom_left: Vector2::new(
+                (position.x)          / tex_width,
+                (position.y + size.y) / tex_height
+            )
+        };
     }
 }
 
@@ -64,29 +74,41 @@ pub struct Texture {
     pub height: i32,
     pub filename: &'static str,
     pub frame_sets: Vec<FrameSet>,
-    pub frame_sets_vbo: GLuint
+    pub frame_sets_ubo: GLuint
 }
 
 impl Texture {
-    // Set the texture to the TEXTURE0 uniform slot
-    pub fn set(&self, sampler_uniform: GLint, sprite_size_uniform: GLint) {
+    // Set the texture to the TEXTURE0 uniform slot.
+    // Also set frame sets attribute properly.
+    pub fn set(&self, sampler_uniform: GLint,
+                      sprite_size_uniform: GLint,
+                      frame_set_uniform_index: GLint) {
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.id);
             gl::Uniform1i(sampler_uniform, 0);
+            // TODO this won't work if we want only a frame.
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
+
+            // gl::BindBufferRange(
+            //     gl::UNIFORM_BUFFER,
+            //     frame_set_uniform_index as GLuint,
+            //     self.frame_sets_ubo,
+            //     0, self.total_frames_size() as i64
+            // );
         }
     }
 
     // This will assign the offset field to all its framesets.
-    // And assign the frames vbo field in the texture.
-    pub fn generate_frames_vbo(&mut self) -> GLuint {
-        // Create vbo
+    // And assign the frames ubo field in the texture.
+    pub fn generate_frames_ubo(&mut self) -> GLuint {
+        panic!("Don't do that");
+        // Create ubo
         unsafe {
-            gl::GenBuffers(1, &mut self.frame_sets_vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.frame_sets_vbo);
+            gl::GenBuffers(1, &mut self.frame_sets_ubo);
+            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frame_sets_ubo);
             gl::BufferData(
-                gl::ARRAY_BUFFER,
+                gl::UNIFORM_BUFFER,
                 self.total_frames_size() as GLsizeiptr,
                 ptr::null(),
                 gl::STATIC_DRAW
@@ -100,21 +122,22 @@ impl Texture {
             for frame in frame_set.frames.iter() {
                 unsafe {
                     gl::BufferSubData(
-                        gl::ARRAY_BUFFER,
+                        gl::UNIFORM_BUFFER,
                         frame_set_offset as i64,
                         size_of::<Texcoords>() as i64,
-                        transmute(&frame.texcoords[0])
+                        transmute(&frame.texcoords)
                     );
                 }
                 frame_set_offset += size_of::<Texcoords>() as i32;
             }
         }
 
-        self.frame_sets_vbo
+        self.frame_sets_ubo
     }
 
     pub fn total_frames_size(&self) -> i32 {
         let frame_set_len = self.frame_sets.len();
+        if frame_set_len == 0 { return 0; }
 
         let last_frame_set   = &self.frame_sets[frame_set_len - 1];
         let last_frames_size = last_frame_set.frames.len() * size_of::<Texcoords>();
@@ -161,14 +184,11 @@ impl TextureManager {
     pub fn load(&mut self, filename: &'static str) -> *mut Texture {
         let mut textures = &mut self.textures;
 
-        let mut count = 0u32;
         for item in textures.iter_mut() {
             if item.filename == filename {
                 // println!("(TextureManager) found it!");
                 return item;
             }
-            else
-                { count += 1 }
         }
 
         let index = textures.len();
@@ -244,7 +264,7 @@ pub fn load_texture(filename: &'static str) -> Texture {
         height: height,
         filename: filename,
         frame_sets: vec![],
-        frame_sets_vbo: 0
+        frame_sets_ubo: 0
     }
 }
 

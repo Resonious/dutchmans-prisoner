@@ -1,4 +1,4 @@
-#![feature(globs, macro_rules, unsafe_destructor)]
+#![feature(globs, macro_rules)]
 extern crate core;
 extern crate libc;
 
@@ -11,6 +11,7 @@ use glfw::{Context, Action, Key};
 use render::shader;
 use render::texture;
 use render::texture::TextureManager;
+use render::texture::Texcoords;
 // use render::sprite::Sprite;
 // use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
@@ -26,14 +27,14 @@ pub mod asset;
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
 
 macro_rules! gen_buffer(
-    ($obj:ident, $buf:ident, $typ:ident) => (
+    ($obj:ident, $buf:ident, $typ:ident, $draw:ident) => (
         {
             gl::GenBuffers(1, &mut $obj);
             gl::BindBuffer(gl::$typ, $obj);
             gl::BufferData(gl::$typ,
                 size_of_val(&$buf) as GLsizeiptr,
                 transmute(&$buf[0]),
-                gl::STATIC_DRAW
+                gl::$draw
             );
         }
     )
@@ -42,46 +43,51 @@ macro_rules! gen_buffer(
 
 
 macro_rules! as_void(
-    ($val:expr) => (transmute::<_, *const c_void>($val))
+    ($val:expr) => (transmute::<i64, *const c_void>($val))
 )
 
 macro_rules! stride(
     ($val:expr) => (($val * size_of::<GLfloat>() as i32))
 )
 
-fn set_positions_attribute(vbo: GLuint) {
-    // TODO remember to change this if the positions attribute location changes
-    let positions_attribute = 2;
-
+fn set_sprite_attribute(vbo: GLuint) {
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        let size_of_sprite = size_of::<Sprite>() as GLint;
 
-        gl::EnableVertexAttribArray(positions_attribute);
+        // == Position ==
+        gl::EnableVertexAttribArray(shader::ATTR_POSITION);
         gl::VertexAttribPointer(
-            positions_attribute, 2, gl::FLOAT, gl::FALSE as GLboolean,
-            stride!(2), as_void!(0u64)
+            shader::ATTR_POSITION, 2, gl::FLOAT, gl::FALSE as GLboolean,
+            size_of_sprite, as_void!(0)
         );
-        gl::VertexAttribDivisor(positions_attribute, 1);
+        gl::VertexAttribDivisor(shader::ATTR_POSITION, 1);
+        let offset = 2 * size_of::<GLfloat>() as i64;
+        assert_eq!(offset, 8);
+
+        // == Frame texcoords ==
+        gl::VertexAttribPointer(
+            shader::ATTR_FRAME_TEXCOORDS, 8, gl::FLOAT, gl::FALSE as GLboolean,
+            size_of_sprite, as_void!(offset)
+        );
+        gl::VertexAttribDivisor(shader::ATTR_FRAME_TEXCOORDS, 1);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 }
 
-// TODO Not sure how to handle texcoords! Maybe they will be
-// in another attribute, with an index in the "Sprite".
 struct Sprite {
     position: Vector2<GLfloat>,
-    frame_set_index: GLint,
-    frame: GLint
+    frame_texcoords: Texcoords
 }
 
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
-    let vertices: [GLfloat, ..16] = [
+    let vertices: [GLfloat, ..8] = [
     //    position
-         2.0,  2.0,    1.0, 1.0, // Top right
-         2.0,  0.0,    1.0, 0.0, // Bottom right
-         0.0,  0.0,    0.0, 0.0, // Top left
-         0.0,  2.0,    0.0, 1.0  // Bottom left
+         2.0,  2.0, //   1.0, 1.0, // Top right
+         2.0,  0.0, //   1.0, 0.0, // Bottom right
+         0.0,  0.0, //   0.0, 0.0, // Top left
+         0.0,  2.0, //   0.0, 1.0  // Bottom left
     ];
     /*  texcoords (for full image)
         1.0, 1.0,
@@ -89,14 +95,23 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         0.0, 0.0,
         0.0, 1.0
     */
+    let full_frame: [GLfloat, ..8] = [
+        1.0, 1.0,
+        1.0, 0.0,
+        0.0, 0.0,
+        0.0, 1.0
+    ];
 
     let indices: [GLuint, ..6] = [
         0, 1, 3,
         1, 2, 3
     ];
 
-    let zero_zero_positions = vec![
-        Vector2::<GLfloat>::new(0.0, 0.0)
+    let zero_zero_positions = [
+        Sprite {
+            position: Vector2::new(0.0, 0.0),
+            frame_texcoords: unsafe { transmute(full_frame) }
+        }
     ];
 
     // let blob_positions = vec![
@@ -104,8 +119,15 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     //     Vector2::<GLfloat>::new(300.0, 100.0)
     // ];
 
-    let crattle_positions = vec![
-        Vector2::<GLfloat>::new(200.0, 200.0)
+    let crattle_positions = [
+        Sprite {
+            position: Vector2::new(200.0, 200.0),
+            frame_texcoords: unsafe { transmute(full_frame) }
+        },
+        Sprite {
+            position: Vector2::new(-200.0, -400.0),
+            frame_texcoords: unsafe { transmute(full_frame) }
+        }
     ];
 
     let mut texture_manager = TextureManager::new();
@@ -113,7 +135,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
     let mut crattle_tex   = unsafe { &mut*texture_manager.load("crattle.png") };
     crattle_tex.add_frame_set(9, 97, 101);
-    crattle_tex.generate_frames_vbo();
+    // crattle_tex.generate_frames_ubo();
 
     // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
 
@@ -128,19 +150,36 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         gl::GenVertexArrays(1, &mut vao);
         gl::BindVertexArray(vao);
 
-        gen_buffer!(vbo, vertices, ARRAY_BUFFER);
-        gen_buffer!(ebo, indices, ELEMENT_ARRAY_BUFFER);
-        gen_buffer!(zero_zero_positions_vbo, zero_zero_positions, ARRAY_BUFFER);
-        gen_buffer!(crattle_positions_vbo, crattle_positions, ARRAY_BUFFER);
+        gen_buffer!(vbo, vertices, ARRAY_BUFFER, STATIC_DRAW);
+        gen_buffer!(ebo, indices, ELEMENT_ARRAY_BUFFER, STATIC_DRAW);
+        gen_buffer!(zero_zero_positions_vbo, zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
+        gen_buffer!(crattle_positions_vbo, crattle_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
 
+        //    gl::GenBuffers(1, &mut zero_zero_positions_vbo);
+        //    gl::BindBuffer(gl::ARRAY_BUFFER, zero_zero_positions_vbo);
+        //    gl::BufferData(gl::ARRAY_BUFFER,
+        //        size_of_val(&$buf) as GLsizeiptr,
+        //        transmute(&$buf[0]),
+        //        gl::DYNAMIC_DRAW
+        //    );
+
+        //    gl::GenBuffers(1, &mut crattle_positions_vbo);
+        //    gl::BindBuffer(gl::ARRAY_BUFFER, crattle_positions_vbo);
+        //    gl::BufferData(gl::ARRAY_BUFFER,
+        //        size_of_val(&$buf) as GLsizeiptr,
+        //        transmute(&$buf[0]),
+        //        gl::DYNAMIC_DRAW
+        //    );
+
+        // per-vertex stuff
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::EnableVertexAttribArray(0);
+        gl::EnableVertexAttribArray(shader::ATTR_VERTEX_POS);
         gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE as GLboolean,
-                                stride!(4), as_void!(0u64));
+                                stride!(2), as_void!(0));
         
-        gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean,
-                                stride!(4), as_void!(2 * size_of::<GLfloat>()));
+        // gl::EnableVertexAttribArray(1);
+        // gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE as GLboolean,
+        //                         stride!(4), as_void!(2 * size_of::<GLfloat>() as i64));
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
@@ -153,7 +192,10 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let tex_uniform         = unsafe { "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
+    // let frame_sets_binding  = 0;
     unsafe {
+        // gl::UniformBlockBinding(prog, frame_sets_loc, frame_sets_binding);
+
         gl::Uniform2f(cam_pos_uniform, 0f32, 0f32);
         match window.get_size() {
             (width, height) => gl::Uniform2f(screen_size_uniform, width as f32, height as f32)
@@ -211,12 +253,15 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             // Draw zero-zero sign
-            zero_zero_tex.set(tex_uniform, sprite_size_uniform);
-            set_positions_attribute(zero_zero_positions_vbo);
-            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_positions.len() as i32);
+            let zero_zero_len = zero_zero_positions.len();
+            zero_zero_tex.set(tex_uniform, sprite_size_uniform, 0);
+            set_sprite_attribute(zero_zero_positions_vbo);
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
             // Draw CRATTLE!!!
-            crattle_tex.set(tex_uniform, sprite_size_uniform);
-            set_positions_attribute(crattle_positions_vbo);
+            crattle_tex.set(tex_uniform, sprite_size_uniform, 0);
+            // HACK
+            // gl::Uniform2f(sprite_size_uniform, 97.0, 101.0);
+            set_sprite_attribute(crattle_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
         }
 

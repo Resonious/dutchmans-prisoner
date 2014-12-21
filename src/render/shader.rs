@@ -5,25 +5,37 @@ extern crate libc;
 use gl::types::*;
 use std::ptr;
 
+pub static ATTR_VERTEX_POS: u32 = 0;
+pub static ATTR_POSITION: u32 = 1;
+pub static ATTR_FRAME_TEXCOORDS: u32 = 2;
+
 pub static STANDARD_VERTEX: &'static str = "
         #version 330 core
 
         // Per vertex, normalized:
         layout (location = 0) in vec2 vertex_pos;
-        layout (location = 1) in vec2 in_texcoord;
         // Per instance:
-        layout (location = 2) in vec2 position;       // in pixels
-        // layout (location = 2) in vec2 in_texcoord; // normalized
+        layout (location = 1) in vec2 position;       // in pixels
+        layout (location = 2) in vec2[4] frame_texcoords;
 
         uniform vec2 screen_size;
-        uniform vec2 cam_pos;
-        uniform vec2 sprite_size;
+        uniform vec2 cam_pos;     // in pixels
+        uniform vec2 sprite_size; // in pixels
 
         out vec2 texcoord;
 
         vec2 from_pixel(vec2 pos)
         {
             return pos / screen_size;
+        }
+
+        vec2 brute_force_texcoord(int id)
+        {
+            if      (id == 0) { return vec2(1.0, 1.0); }
+            else if (id == 1) { return vec2(1.0, 0.0); }
+            else if (id == 2) { return vec2(0.0, 0.0); }
+            else if (id == 3) { return vec2(0.0, 1.0); }
+            else { return vec2(2.2, 2.2); }
         }
 
         void main()
@@ -33,7 +45,9 @@ pub static STANDARD_VERTEX: &'static str = "
                 vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos),
                 0.0f, 1.0f
             );
-            texcoord = vec2(in_texcoord.x, 1 - in_texcoord.y);
+            texcoord = frame_texcoords[gl_VertexID];
+            // texcoord = brute_force_texcoord(gl_VertexID);
+            texcoord.y = 1 - texcoord.y;
         }
     ";
 
