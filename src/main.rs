@@ -68,8 +68,8 @@ fn set_sprite_attribute(vbo: GLuint) {
 
         // == Frame ==
         gl::EnableVertexAttribArray(shader::ATTR_FRAME_OFFSET);
-        gl::VertexAttribPointer(
-            shader::ATTR_FRAME_OFFSET, 1, gl::INT, gl::FALSE as GLboolean,
+        gl::VertexAttribIPointer(
+            shader::ATTR_FRAME_OFFSET, 1, gl::INT,
             size_of_sprite, as_void!(offset)
         );
         gl::VertexAttribDivisor(shader::ATTR_FRAME_OFFSET, 1);
@@ -125,7 +125,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let crattle_positions = [
         Sprite {
             position: Vector2::new(100.0, 100.0),
-            frame_offset: 0
+            frame_offset: 8
         },
         Sprite {
             position: Vector2::new(-200.0, -400.0),
@@ -137,7 +137,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
     let mut crattle_tex   = unsafe { &mut*texture_manager.load("tile-test.png") };
-    crattle_tex.add_frame_set(10, 64, 64);
+    crattle_tex.add_frames(10, 64, 64);
     crattle_tex.generate_frames_ubo();
 
     // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
@@ -223,6 +223,11 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
                         cam_pos.x -= 10.0;
                         println!("Cam is at {}", cam_pos);
                     },
+
+                glfw::WindowEvent::Key(Key::B, _, Action::Release, _) => {
+                    let frames = &crattle_tex.frames;
+                    println!("Break time!");
+                },
 
                 glfw::WindowEvent::Size(width, height) => unsafe {
                     println!("screen is now {} x {}", width, height);

@@ -5,9 +5,12 @@ extern crate libc;
 use gl::types::*;
 use std::ptr;
 
+// NOTE make sure these constants match what's in the shader.
 pub static ATTR_VERTEX_POS: u32 = 0;
 pub static ATTR_POSITION: u32 = 1;
 pub static ATTR_FRAME_OFFSET: u32 = 2;
+
+pub static FRAME_UNIFORM_MAX: i64 = 256;
 
 pub static STANDARD_VERTEX: &'static str = "
         #version 330 core
@@ -45,10 +48,10 @@ pub static STANDARD_VERTEX: &'static str = "
 
         vec2 brute_force_half_texcoord(int id)
         {
-            if      (id == 0) { return vec2(0.125, 1); }
-            else if (id == 1) { return vec2(0.125, 0.5); }
-            else if (id == 2) { return vec2(0.0, 0.5); }
-            else if (id == 3) { return vec2(0.0, 1.0); }
+            if      (id == 0) { return vec2(0.375, 1); }
+            else if (id == 1) { return vec2(0.375, 0.5); }
+            else if (id == 2) { return vec2(0.25, 0.5); }
+            else if (id == 3) { return vec2(0.25, 1.0); }
             // Should not happen:
             else { return vec2(2.2, 2.2); }
         }
@@ -62,19 +65,20 @@ pub static STANDARD_VERTEX: &'static str = "
                 0.0f, 1.0f
             );
 
-            if (frame_offset < 0)
+            if (frame_offset == -1)
                 texcoord = brute_force_texcoord(gl_VertexID);
             else
             {
-                // if (frames[frame_offset].x == 0.125)
-                    // texcoord = brute_force_texcoord(gl_VertexID);
+                // if (frame_offset == 8)
+                    // texcoord = brute_force_half_texcoord(gl_VertexID);
                 // else
-                // texcoord = frames[frame_offset + gl_VertexID];
-                texcoord = brute_force_half_texcoord(gl_VertexID);
+                // texcoord = brute_force_half_texcoord(gl_VertexID);
+                texcoord = frames[frame_offset + gl_VertexID];
             }
             texcoord.y = 1 - texcoord.y;
         }
     ";
+// TODO confirmed; the UBO is not being populated or bound correctly.
 
 pub static STANDARD_FRAGMENT: &'static str = "
         #version 330 core

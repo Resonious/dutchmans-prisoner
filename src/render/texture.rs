@@ -6,7 +6,7 @@ extern crate cgmath;
 
 use cgmath::*;
 use gl::types::*;
-use std::mem::{size_of, transmute, uninitialized};
+use std::mem::{size_of, transmute, uninitialized, transmute_copy};
 use std::vec::Vec;
 use std::ptr;
 use self::image::{GenericImage};
@@ -32,9 +32,7 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn generate_texcoords(&mut self, texture: &Texture) {
-        let tex_width  = texture.width as f32;
-        let tex_height = texture.height as f32;
+    pub fn generate_texcoords(&mut self, tex_width: f32, tex_height: f32) {
         let position  = self.position;
         let size      = self.size;
 
@@ -62,19 +60,15 @@ impl Frame {
     }
 }
 
-pub struct FrameSet {
-    pub frames: Box<[Frame]>,
-    pub offset: i32
-}
-
 // Represents an actual texture that is currently on the GPU.
 pub struct Texture {
     pub id: GLuint,
     pub width: i32,
     pub height: i32,
     pub filename: &'static str,
-    pub frame_sets: Vec<FrameSet>,
-    pub frame_sets_ubo: GLuint
+    pub frames: Vec<Frame>,
+    pub frame_texcoords_size: i64,
+    pub frames_ubo: GLuint
 }
 
 impl Texture {
@@ -82,87 +76,101 @@ impl Texture {
     // Also set frame sets attribute properly.
     pub fn set(&self, sampler_uniform: GLint,
                       sprite_size_uniform: GLint,
-                      frame_set_uniform_index: GLint) {
+                      frames_uniform_index: GLint) {
         unsafe {
+            assert!(self.frame_texcoords_size / 8 < shader::FRAME_UNIFORM_MAX);
+
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.id);
             gl::Uniform1i(sampler_uniform, 0);
             // TODO this won't work if we want only a frame.
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
 
-            if frame_set_uniform_index >= 0 && self.frame_sets_ubo != -1 as u32 {
+            if frames_uniform_index >= 0 && self.frames_ubo != -1 as u32 {
                 gl::BindBufferRange(
                     gl::UNIFORM_BUFFER,
-                    frame_set_uniform_index as GLuint,
-                    self.frame_sets_ubo,
-                    0, self.total_frames_size() as i64
+                    frames_uniform_index as GLuint,
+                    self.frames_ubo,
+                    0, self.frame_texcoords_size as i64
                 );
             }
         }
     }
 
-    // This will assign the offset field to all its framesets.
-    // And assign the frames ubo field in the texture.
     pub fn generate_frames_ubo(&mut self) -> GLuint {
         // Create ubo
         unsafe {
-            gl::GenBuffers(1, &mut self.frame_sets_ubo);
-            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frame_sets_ubo);
+            gl::GenBuffers(1, &mut self.frames_ubo);
+            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frames_ubo);
             gl::BufferData(
                 gl::UNIFORM_BUFFER,
-                self.total_frames_size() as GLsizeiptr,
+                self.frame_texcoords_size as GLsizeiptr,
                 ptr::null(),
                 gl::STATIC_DRAW
             );
         }
         // Send the texcoords of every frame
-        let mut frame_set_offset = 0i64;
-        for frame_set in self.frame_sets.iter() {
-            assert_eq!(frame_set.offset as i64, frame_set_offset);
 
-            for frame in frame_set.frames.iter() {
-                unsafe {
-                    gl::BufferSubData(
-                        gl::UNIFORM_BUFFER,
-                        frame_set_offset,
-                        size_of::<Texcoords>() as i64,
-                        transmute(&frame.texcoords)
-                    );
-                }
-                frame_set_offset += size_of::<Texcoords>() as i64;
+        let mut frame_offset = 0i64;
+        let texcoords_size = size_of::<Texcoords>() as i64;
+        for frame in self.frames.iter() {
+            unsafe {
+                gl::BufferSubData(
+                    gl::UNIFORM_BUFFER,
+                    frame_offset,
+                    texcoords_size,
+                    transmute(&&frame.texcoords)
+                );
             }
+            // let test = unsafe { transmute_copy::<_, [f32, ..8]>(&frame.texcoords) };
+            frame_offset += texcoords_size;
         }
-
-        self.frame_sets_ubo
+        self.frames_ubo
     }
 
-    pub fn total_frames_size(&self) -> i32 {
-        let frame_set_len = self.frame_sets.len();
-        if frame_set_len == 0 { return 0; }
+    // NOTE If you call this twice, and ask for smaller frame size on the
+    // second call, you are asking for trouble...
+    pub fn add_frames(&mut self, count: uint, uwidth: uint, uheight: uint) {
+        let frames_len = self.frames.len();
+        let tex_width  = self.width as f32;
+        let tex_height = self.height as f32;
+        let width  = uwidth as f32;
+        let height = uheight as f32;
 
-        let last_frame_set   = &self.frame_sets[frame_set_len - 1];
-        let last_frames_size = last_frame_set.frames.len() * size_of::<Texcoords>();
+        let mut current_pos = match frames_len {
+            0 => Vector2::<f32>::new(0.0, tex_height - height),
+            _ => self.frames[frames_len - 1].position
+        };
 
-        last_frame_set.offset as i32 + last_frames_size as i32
-    }
-
-    // Just calls generate_frames. Also assigns frame set offset.
-    pub fn add_frame_set<'t>(&'t mut self, count: uint, width: uint, height: uint) {
-        let frames = generate_frames(self, count, width as f32, height as f32);
-        let frame_set_count = self.frame_sets.len();
-        let offset = if frame_set_count == 0 {
-                0
-            } else { self.total_frames_size() };
-
-        self.frame_sets.push(
-            FrameSet {
-                frames: frames,
-                offset: offset
+        self.frames.grow_fn(count, |_| {
+            if current_pos.x + width > tex_width {
+                current_pos.x = 0.0;
+                current_pos.y -= height;
             }
-        );
+            if current_pos.y < 0.0 {
+                panic!(
+                    "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
+                    count, width, height, tex_width, tex_height
+                );
+            }
+
+            let mut frame = Frame {
+                position:  current_pos,
+                size:      Vector2::new(width, height),
+                texcoords: unsafe { uninitialized() }
+            };
+            frame.generate_texcoords(tex_width, tex_height);
+
+            current_pos.x += width;
+
+            frame
+        });
+
+        self.frame_texcoords_size += size_of::<Texcoords>() as i64 * count as i64;
     }
 
     // TODO man, should this be a destructor?
+    // A: NO
     pub fn unload(&mut self) {
         unsafe {
             gl::DeleteTextures(1, &self.id);
@@ -264,38 +272,40 @@ pub fn load_texture(filename: &'static str) -> Texture {
         width: width,
         height: height,
         filename: filename,
-        frame_sets: vec![],
-        frame_sets_ubo: -1 as u32
+        frames: vec![],
+        frame_texcoords_size: 0,
+        frames_ubo: 0 as GLuint
     }
 }
 
-pub fn generate_frames<'t>(texture: &'t Texture, count: uint, width: f32, height: f32) -> Box<[Frame]> {
-    let tex_width  = texture.width as f32;
-    let tex_height = texture.height as f32;
-
-    let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
-
-    Vec::from_fn(count, |_| {
-        if current_pos.x + width > tex_width {
-            current_pos.x = 0.0;
-            current_pos.y -= height;
-        }
-        if current_pos.y < 0.0 {
-            panic!(
-                "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
-                count, width, height, tex_width, tex_height
-            );
-        }
-
-        let mut frame = Frame {
-            position:  current_pos,
-            size:      Vector2::new(width, height),
-            texcoords: unsafe { uninitialized() }
-        };
-        frame.generate_texcoords(texture);
-
-        current_pos.x += width;
-
-        frame
-    }).into_boxed_slice()
-}
+// TODO EL DEPRECATO
+// pub fn generate_frames<'t>(texture: &'t Texture, count: uint, width: f32, height: f32) -> Box<[Frame]> {
+//     let tex_width  = texture.width as f32;
+//     let tex_height = texture.height as f32;
+// 
+//     let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
+// 
+//     Vec::from_fn(count, |_| {
+//         if current_pos.x + width > tex_width {
+//             current_pos.x = 0.0;
+//             current_pos.y -= height;
+//         }
+//         if current_pos.y < 0.0 {
+//             panic!(
+//                 "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
+//                 count, width, height, tex_width, tex_height
+//             );
+//         }
+// 
+//         let mut frame = Frame {
+//             position:  current_pos,
+//             size:      Vector2::new(width, height),
+//             texcoords: unsafe { uninitialized() }
+//         };
+//         frame.generate_texcoords(texture);
+// 
+//         current_pos.x += width;
+// 
+//         frame
+//     }).into_boxed_slice()
+// }
