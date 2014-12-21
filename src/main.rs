@@ -54,6 +54,7 @@ fn set_sprite_attribute(vbo: GLuint) {
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         let size_of_sprite = size_of::<Sprite>() as GLint;
+        assert_eq!(size_of_sprite, 12);
 
         // == Position ==
         gl::EnableVertexAttribArray(shader::ATTR_POSITION);
@@ -65,12 +66,13 @@ fn set_sprite_attribute(vbo: GLuint) {
         let offset = 2 * size_of::<GLfloat>() as i64;
         assert_eq!(offset, 8);
 
-        // == Frame texcoords ==
+        // == Frame ==
+        gl::EnableVertexAttribArray(shader::ATTR_FRAME_OFFSET);
         gl::VertexAttribPointer(
-            shader::ATTR_FRAME_TEXCOORDS, 8, gl::FLOAT, gl::FALSE as GLboolean,
+            shader::ATTR_FRAME_OFFSET, 1, gl::INT, gl::FALSE as GLboolean,
             size_of_sprite, as_void!(offset)
         );
-        gl::VertexAttribDivisor(shader::ATTR_FRAME_TEXCOORDS, 1);
+        gl::VertexAttribDivisor(shader::ATTR_FRAME_OFFSET, 1);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
@@ -78,7 +80,8 @@ fn set_sprite_attribute(vbo: GLuint) {
 
 struct Sprite {
     position: Vector2<GLfloat>,
-    frame_texcoords: Texcoords
+    // NOTE should always be a multiple of 4!
+    frame_offset: GLint
 }
 
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
@@ -110,7 +113,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let zero_zero_positions = [
         Sprite {
             position: Vector2::new(0.0, 0.0),
-            frame_texcoords: unsafe { transmute(full_frame) }
+            frame_offset: -1
         }
     ];
 
@@ -122,11 +125,11 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let crattle_positions = [
         Sprite {
             position: Vector2::new(200.0, 200.0),
-            frame_texcoords: unsafe { transmute(full_frame) }
+            frame_offset: 0
         },
         Sprite {
             position: Vector2::new(-200.0, -400.0),
-            frame_texcoords: unsafe { transmute(full_frame) }
+            frame_offset: 4
         }
     ];
 
@@ -135,7 +138,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
     let mut crattle_tex   = unsafe { &mut*texture_manager.load("crattle.png") };
     crattle_tex.add_frame_set(9, 97, 101);
-    // crattle_tex.generate_frames_ubo();
+    crattle_tex.generate_frames_ubo();
 
     // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
 
@@ -155,22 +158,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         gen_buffer!(zero_zero_positions_vbo, zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
         gen_buffer!(crattle_positions_vbo, crattle_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
 
-        //    gl::GenBuffers(1, &mut zero_zero_positions_vbo);
-        //    gl::BindBuffer(gl::ARRAY_BUFFER, zero_zero_positions_vbo);
-        //    gl::BufferData(gl::ARRAY_BUFFER,
-        //        size_of_val(&$buf) as GLsizeiptr,
-        //        transmute(&$buf[0]),
-        //        gl::DYNAMIC_DRAW
-        //    );
-
-        //    gl::GenBuffers(1, &mut crattle_positions_vbo);
-        //    gl::BindBuffer(gl::ARRAY_BUFFER, crattle_positions_vbo);
-        //    gl::BufferData(gl::ARRAY_BUFFER,
-        //        size_of_val(&$buf) as GLsizeiptr,
-        //        transmute(&$buf[0]),
-        //        gl::DYNAMIC_DRAW
-        //    );
-
         // per-vertex stuff
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::EnableVertexAttribArray(shader::ATTR_VERTEX_POS);
@@ -188,13 +175,14 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
     let prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
     unsafe { gl::UseProgram(prog) }
-    let cam_pos_uniform     = unsafe { "cam_pos".with_c_str(|c| gl::GetUniformLocation(prog, c)) };
+    let cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(prog, c)) };
     let sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
-    let tex_uniform         = unsafe { "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
-    // let frame_sets_binding  = 0;
+    let tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
+    let frames_index        = unsafe {    "Frames".with_c_str(|f| gl::GetUniformBlockIndex(prog, f)) };
+    let frames_loc = 0;
     unsafe {
-        // gl::UniformBlockBinding(prog, frame_sets_loc, frame_sets_binding);
+        gl::UniformBlockBinding(prog, frames_index, frames_loc);
 
         gl::Uniform2f(cam_pos_uniform, 0f32, 0f32);
         match window.get_size() {
@@ -254,13 +242,13 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
             // Draw zero-zero sign
             let zero_zero_len = zero_zero_positions.len();
-            zero_zero_tex.set(tex_uniform, sprite_size_uniform, 0);
+            zero_zero_tex.set(tex_uniform, sprite_size_uniform, -1);
             set_sprite_attribute(zero_zero_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
             // Draw CRATTLE!!!
-            crattle_tex.set(tex_uniform, sprite_size_uniform, 0);
+            crattle_tex.set(tex_uniform, sprite_size_uniform, frames_loc as i32);
             // HACK
-            // gl::Uniform2f(sprite_size_uniform, 97.0, 101.0);
+            gl::Uniform2f(sprite_size_uniform, 97.0, 101.0);
             set_sprite_attribute(crattle_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
         }

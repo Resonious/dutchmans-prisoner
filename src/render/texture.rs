@@ -90,19 +90,20 @@ impl Texture {
             // TODO this won't work if we want only a frame.
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
 
-            // gl::BindBufferRange(
-            //     gl::UNIFORM_BUFFER,
-            //     frame_set_uniform_index as GLuint,
-            //     self.frame_sets_ubo,
-            //     0, self.total_frames_size() as i64
-            // );
+            if frame_set_uniform_index >= 0 && self.frame_sets_ubo != -1 as u32 {
+                gl::BindBufferRange(
+                    gl::UNIFORM_BUFFER,
+                    frame_set_uniform_index as GLuint,
+                    self.frame_sets_ubo,
+                    0, self.total_frames_size() as i64
+                );
+            }
         }
     }
 
     // This will assign the offset field to all its framesets.
     // And assign the frames ubo field in the texture.
     pub fn generate_frames_ubo(&mut self) -> GLuint {
-        panic!("Don't do that");
         // Create ubo
         unsafe {
             gl::GenBuffers(1, &mut self.frame_sets_ubo);
@@ -264,7 +265,7 @@ pub fn load_texture(filename: &'static str) -> Texture {
         height: height,
         filename: filename,
         frame_sets: vec![],
-        frame_sets_ubo: 0
+        frame_sets_ubo: -1 as u32
     }
 }
 

@@ -7,7 +7,7 @@ use std::ptr;
 
 pub static ATTR_VERTEX_POS: u32 = 0;
 pub static ATTR_POSITION: u32 = 1;
-pub static ATTR_FRAME_TEXCOORDS: u32 = 2;
+pub static ATTR_FRAME_OFFSET: u32 = 2;
 
 pub static STANDARD_VERTEX: &'static str = "
         #version 330 core
@@ -16,8 +16,12 @@ pub static STANDARD_VERTEX: &'static str = "
         layout (location = 0) in vec2 vertex_pos;
         // Per instance:
         layout (location = 1) in vec2 position;       // in pixels
-        layout (location = 2) in vec2[4] frame_texcoords;
+        layout (location = 2) in int frame_offset;
 
+        layout (std140) uniform Frames
+        {
+            vec2[128] frames;
+        };
         uniform vec2 screen_size;
         uniform vec2 cam_pos;     // in pixels
         uniform vec2 sprite_size; // in pixels
@@ -35,6 +39,7 @@ pub static STANDARD_VERTEX: &'static str = "
             else if (id == 1) { return vec2(1.0, 0.0); }
             else if (id == 2) { return vec2(0.0, 0.0); }
             else if (id == 3) { return vec2(0.0, 1.0); }
+            // Should not happen:
             else { return vec2(2.2, 2.2); }
         }
 
@@ -45,9 +50,20 @@ pub static STANDARD_VERTEX: &'static str = "
                 vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos),
                 0.0f, 1.0f
             );
-            texcoord = frame_texcoords[gl_VertexID];
-            // texcoord = brute_force_texcoord(gl_VertexID);
-            texcoord.y = 1 - texcoord.y;
+
+            if (frame_offset < 0)
+            {
+                texcoord = brute_force_texcoord(gl_VertexID);
+                texcoord.y = 1 - texcoord.y;
+            }
+            else
+            {
+                // if (frames[frame_offset].x == 0.125)
+                    // texcoord = brute_force_texcoord(gl_VertexID);
+                // else
+                texcoord = frames[frame_offset + gl_VertexID];
+            }
+
         }
     ";
 
