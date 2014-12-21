@@ -89,8 +89,8 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     //    position
          2.0,  2.0, //   1.0, 1.0, // Top right
          2.0,  0.0, //   1.0, 0.0, // Bottom right
-         0.0,  0.0, //   0.0, 0.0, // Top left
-         0.0,  2.0, //   0.0, 1.0  // Bottom left
+         0.0,  0.0, //   0.0, 0.0, // Bottom left
+         0.0,  2.0, //   0.0, 1.0  // Top left
     ];
     /*  texcoords (for full image)
         1.0, 1.0,
@@ -124,7 +124,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
     let crattle_positions = [
         Sprite {
-            position: Vector2::new(200.0, 200.0),
+            position: Vector2::new(100.0, 100.0),
             frame_offset: 0
         },
         Sprite {
@@ -136,8 +136,8 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let mut texture_manager = TextureManager::new();
 
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
-    let mut crattle_tex   = unsafe { &mut*texture_manager.load("crattle.png") };
-    crattle_tex.add_frame_set(9, 97, 101);
+    let mut crattle_tex   = unsafe { &mut*texture_manager.load("tile-test.png") };
+    crattle_tex.add_frame_set(10, 64, 64);
     crattle_tex.generate_frames_ubo();
 
     // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
@@ -248,7 +248,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             // Draw CRATTLE!!!
             crattle_tex.set(tex_uniform, sprite_size_uniform, frames_loc as i32);
             // HACK
-            gl::Uniform2f(sprite_size_uniform, 97.0, 101.0);
+            gl::Uniform2f(sprite_size_uniform, 64.0, 64.0);
             set_sprite_attribute(crattle_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
         }

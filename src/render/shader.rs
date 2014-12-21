@@ -20,7 +20,7 @@ pub static STANDARD_VERTEX: &'static str = "
 
         layout (std140) uniform Frames
         {
-            vec2[128] frames;
+            vec2[256] frames;
         };
         uniform vec2 screen_size;
         uniform vec2 cam_pos;     // in pixels
@@ -43,6 +43,17 @@ pub static STANDARD_VERTEX: &'static str = "
             else { return vec2(2.2, 2.2); }
         }
 
+        vec2 brute_force_half_texcoord(int id)
+        {
+            if      (id == 0) { return vec2(0.125, 1); }
+            else if (id == 1) { return vec2(0.125, 0.5); }
+            else if (id == 2) { return vec2(0.0, 0.5); }
+            else if (id == 3) { return vec2(0.0, 1.0); }
+            // Should not happen:
+            else { return vec2(2.2, 2.2); }
+        }
+
+
         void main()
         {
             vec2 pixel_screen_pos = (position - cam_pos) * 2;
@@ -52,18 +63,16 @@ pub static STANDARD_VERTEX: &'static str = "
             );
 
             if (frame_offset < 0)
-            {
                 texcoord = brute_force_texcoord(gl_VertexID);
-                texcoord.y = 1 - texcoord.y;
-            }
             else
             {
                 // if (frames[frame_offset].x == 0.125)
                     // texcoord = brute_force_texcoord(gl_VertexID);
                 // else
-                texcoord = frames[frame_offset + gl_VertexID];
+                // texcoord = frames[frame_offset + gl_VertexID];
+                texcoord = brute_force_half_texcoord(gl_VertexID);
             }
-
+            texcoord.y = 1 - texcoord.y;
         }
     ";
 

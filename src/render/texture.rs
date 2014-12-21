@@ -18,8 +18,8 @@ use asset;
 pub struct Texcoords {
     pub top_right:    Vector2<GLfloat>,
     pub bottom_right: Vector2<GLfloat>,
-    pub top_left:     Vector2<GLfloat>,
-    pub bottom_left:  Vector2<GLfloat>
+    pub bottom_left:  Vector2<GLfloat>,
+    pub top_left:     Vector2<GLfloat>
 }
 
 // Represents an animation frame; a square section of a Texture.
@@ -41,20 +41,20 @@ impl Frame {
         self.texcoords = Texcoords {
             top_right: Vector2::new(
                 (position.x + size.x) / tex_width,
-                (position.y)          / tex_height
+                (position.y + size.y) / tex_height
             ),
 
             bottom_right: Vector2::new(
                 (position.x + size.x) / tex_width,
-                (position.y + size.y) / tex_height
-            ),
-
-            top_left: Vector2::new(
-                (position.x)          / tex_width,
                 (position.y)          / tex_height
             ),
 
             bottom_left: Vector2::new(
+                (position.x)          / tex_width,
+                (position.y)          / tex_height
+            ),
+
+            top_left: Vector2::new(
                 (position.x)          / tex_width,
                 (position.y + size.y) / tex_height
             )
@@ -116,20 +116,20 @@ impl Texture {
             );
         }
         // Send the texcoords of every frame
-        let mut frame_set_offset = 0i32;
+        let mut frame_set_offset = 0i64;
         for frame_set in self.frame_sets.iter() {
-            assert_eq!(frame_set.offset, frame_set_offset);
+            assert_eq!(frame_set.offset as i64, frame_set_offset);
 
             for frame in frame_set.frames.iter() {
                 unsafe {
                     gl::BufferSubData(
                         gl::UNIFORM_BUFFER,
-                        frame_set_offset as i64,
+                        frame_set_offset,
                         size_of::<Texcoords>() as i64,
                         transmute(&frame.texcoords)
                     );
                 }
-                frame_set_offset += size_of::<Texcoords>() as i32;
+                frame_set_offset += size_of::<Texcoords>() as i64;
             }
         }
 
@@ -273,14 +273,14 @@ pub fn generate_frames<'t>(texture: &'t Texture, count: uint, width: f32, height
     let tex_width  = texture.width as f32;
     let tex_height = texture.height as f32;
 
-    let mut current_pos = Vector2::<f32>::new(0.0, 0.0);
+    let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
 
     Vec::from_fn(count, |_| {
         if current_pos.x + width > tex_width {
             current_pos.x = 0.0;
-            current_pos.y += height;
+            current_pos.y -= height;
         }
-        if current_pos.y + height > tex_height {
+        if current_pos.y < 0.0 {
             panic!(
                 "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
                 count, width, height, tex_width, tex_height
