@@ -21,10 +21,7 @@ pub static STANDARD_VERTEX: &'static str = "
         layout (location = 1) in vec2 position;       // in pixels
         layout (location = 2) in int frame_offset;
 
-        layout (std140) uniform Frames
-        {
-            vec2[256] frames;
-        };
+        uniform vec2[256] frames;
         uniform vec2 screen_size;
         uniform vec2 cam_pos;     // in pixels
         uniform vec2 sprite_size; // in pixels

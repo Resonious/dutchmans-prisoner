@@ -16,6 +16,7 @@ use libc::c_void;
 
 use asset;
 
+#[deriving(Clone)]
 pub struct Texcoords {
     pub top_right:    Vector2<GLfloat>,
     pub bottom_right: Vector2<GLfloat>,
@@ -69,16 +70,11 @@ pub struct Texture {
     pub filename: &'static str,
     pub frames: Vec<Frame>,
     pub frame_texcoords_size: i64,
-    pub frames_ubo: GLuint
-        // TODO maybe also binding point
 }
 
 impl Texture {
     // Set the texture to the TEXTURE0 uniform slot.
-    // Also set frame sets attribute properly.
-    pub fn set(&self, sampler_uniform: GLint,
-                      sprite_size_uniform: GLint,
-                      binding_point: GLint) {
+    pub fn set(&self, sampler_uniform: GLint, sprite_size_uniform: GLint) {
         unsafe {
             assert!(self.frame_texcoords_size / 8 < shader::FRAME_UNIFORM_MAX);
 
@@ -87,53 +83,23 @@ impl Texture {
             gl::Uniform1i(sampler_uniform, 0);
             // TODO this won't work if we want only a frame.
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
-
-            if binding_point >= 0 && self.frames_ubo != -1 as u32 {
-                unsafe {
-                    gl::BindBufferBase(
-                        gl::UNIFORM_BUFFER,
-                        binding_point as GLuint,
-                        self.frames_ubo
-                    );
-                }
-            }
         }
     }
 
-    pub fn generate_frames_ubo(&mut self, binding_point: GLuint) -> GLuint {
-        // Create ubo
+    pub fn set_frames_uniform(&self, uniform_location: GLint) {
+        let texcoords_size = size_of::<Texcoords>();
+        let frames_len = self.frames.len();
+        let buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
+            self.frames[i].texcoords.clone()
+        });
+
         unsafe {
-            gl::GenBuffers(1, &mut self.frames_ubo);
-            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frames_ubo);
-            gl::BufferData(
-                gl::UNIFORM_BUFFER,
-                self.frame_texcoords_size as GLsizeiptr,
-                ptr::null(),
-                gl::STATIC_DRAW
+            gl::Uniform2fv(
+                uniform_location,
+                frames_len as GLint * 4,
+                transmute(&buffer[0])
             );
-            gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
-
-            gl::BindBufferBase(gl::UNIFORM_BUFFER, binding_point, self.frames_ubo);
-            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frames_ubo);
         }
-        // Send the texcoords of every frame
-
-        let mut frame_offset = 0i64;
-        let texcoords_size = size_of::<Texcoords>() as i64;
-        for frame in self.frames.iter() {
-            unsafe {
-                gl::BufferSubData(
-                    gl::UNIFORM_BUFFER,
-                    frame_offset,
-                    texcoords_size,
-                    transmute(&frame.texcoords)
-                );
-            }
-            // let test = unsafe { transmute_copy::<_, [f32, ..8]>(&frame.texcoords) };
-            frame_offset += texcoords_size;
-        }
-
-        self.frames_ubo
     }
 
     // NOTE If you call this twice, and ask for smaller frame size on the
@@ -147,7 +113,7 @@ impl Texture {
 
         let mut current_pos = match frames_len {
             0 => Vector2::<f32>::new(0.0, tex_height - height),
-            _ => self.frames[frames_len - 1].position
+            _ => self.frames[frames_len - 1].position + Vector2::new(width, 0.0)
         };
 
         self.frames.grow_fn(count, |_| {
@@ -282,7 +248,6 @@ pub fn load_texture(filename: &'static str) -> Texture {
         filename: filename,
         frames: vec![],
         frame_texcoords_size: 0,
-        frames_ubo: 0 as GLuint
     }
 }
 

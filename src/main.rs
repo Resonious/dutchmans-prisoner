@@ -194,17 +194,14 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
-    let frames_shader_index = unsafe {    "Frames".with_c_str(|f| gl::GetUniformBlockIndex(prog, f)) };
-    let crattle_binding_point = 0;
+    let frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(prog, f)) };
     unsafe {
-        gl::UniformBlockBinding(prog, frames_shader_index, crattle_binding_point);
-
         gl::Uniform2f(cam_pos_uniform, 0f32, 0f32);
         match window.get_size() {
             (width, height) => gl::Uniform2f(screen_size_uniform, width as f32, height as f32)
         }
     }
-    crattle_tex.generate_frames_ubo(crattle_binding_point);
+    crattle_tex.set_frames_uniform(frames_uniform);
 
     let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
@@ -264,15 +261,17 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
             // Draw zero-zero sign
             let zero_zero_len = zero_zero_positions.len();
-            zero_zero_tex.set(tex_uniform, sprite_size_uniform, -1);
+            zero_zero_tex.set(tex_uniform, sprite_size_uniform);
             set_sprite_attribute(zero_zero_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
             // Draw CRATTLE!!!
-            crattle_tex.set(tex_uniform, sprite_size_uniform, crattle_binding_point as i32);
+            crattle_tex.set(tex_uniform, sprite_size_uniform);
             // HACK
             gl::Uniform2f(sprite_size_uniform, 64.0, 64.0);
             set_sprite_attribute(crattle_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
+
+            check_error!();
         }
 
         window.swap_buffers();
