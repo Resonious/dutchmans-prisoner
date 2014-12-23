@@ -42,6 +42,22 @@ macro_rules! gen_buffer(
         // gen_buffer!(vbo, vertices, ARRAY_BUFFER);
 
 
+macro_rules! check_error(
+    () => (
+        match gl::GetError() {
+            gl::NO_ERROR => {}
+            gl::INVALID_ENUM => panic!("Invalid enum!"),
+            gl::INVALID_VALUE => panic!("Invalid value!"),
+            gl::INVALID_OPERATION => panic!("Invalid operation!"),
+            gl::INVALID_FRAMEBUFFER_OPERATION => panic!("Invalid framebuffer operation?!"),
+            gl::OUT_OF_MEMORY => panic!("Out of memory bro!!!!!!!"),
+            // gl::STACK_UNDERFLOW => panic!("Stack UNDERflow!"),
+            // gl::STACK_OVERFLOW => panic!("Stack overflow!")
+            _ => panic!("I DON'T KNOW. FULL BANANNACAKES.")
+        }
+    )
+)
+
 macro_rules! as_void(
     ($val:expr) => (transmute::<i64, *const c_void>($val))
 )
@@ -138,7 +154,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
     let mut crattle_tex   = unsafe { &mut*texture_manager.load("tile-test.png") };
     crattle_tex.add_frames(10, 64, 64);
-    crattle_tex.generate_frames_ubo();
 
     // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
 
@@ -179,16 +194,18 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(prog, s)) };
     let tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(prog, t)) };
-    let frames_index        = unsafe {    "Frames".with_c_str(|f| gl::GetUniformBlockIndex(prog, f)) };
-    let frames_loc = 0;
+    let frames_shader_index = unsafe {    "Frames".with_c_str(|f| gl::GetUniformBlockIndex(prog, f)) };
+    let crattle_binding_point = 0;
     unsafe {
-        gl::UniformBlockBinding(prog, frames_index, frames_loc);
+        gl::UniformBlockBinding(prog, frames_shader_index, crattle_binding_point);
 
         gl::Uniform2f(cam_pos_uniform, 0f32, 0f32);
         match window.get_size() {
             (width, height) => gl::Uniform2f(screen_size_uniform, width as f32, height as f32)
         }
     }
+    crattle_tex.generate_frames_ubo(crattle_binding_point);
+
     let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
     // Doing this here for now to make sure it compiles and stuff:
@@ -251,7 +268,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             set_sprite_attribute(zero_zero_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
             // Draw CRATTLE!!!
-            crattle_tex.set(tex_uniform, sprite_size_uniform, frames_loc as i32);
+            crattle_tex.set(tex_uniform, sprite_size_uniform, crattle_binding_point as i32);
             // HACK
             gl::Uniform2f(sprite_size_uniform, 64.0, 64.0);
             set_sprite_attribute(crattle_positions_vbo);

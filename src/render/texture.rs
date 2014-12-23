@@ -12,6 +12,7 @@ use std::ptr;
 use self::image::{GenericImage};
 use gl::types::*;
 use render::shader;
+use libc::c_void;
 
 use asset;
 
@@ -69,6 +70,7 @@ pub struct Texture {
     pub frames: Vec<Frame>,
     pub frame_texcoords_size: i64,
     pub frames_ubo: GLuint
+        // TODO maybe also binding point
 }
 
 impl Texture {
@@ -76,7 +78,7 @@ impl Texture {
     // Also set frame sets attribute properly.
     pub fn set(&self, sampler_uniform: GLint,
                       sprite_size_uniform: GLint,
-                      frames_uniform_index: GLint) {
+                      binding_point: GLint) {
         unsafe {
             assert!(self.frame_texcoords_size / 8 < shader::FRAME_UNIFORM_MAX);
 
@@ -86,18 +88,19 @@ impl Texture {
             // TODO this won't work if we want only a frame.
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
 
-            if frames_uniform_index >= 0 && self.frames_ubo != -1 as u32 {
-                gl::BindBufferRange(
-                    gl::UNIFORM_BUFFER,
-                    frames_uniform_index as GLuint,
-                    self.frames_ubo,
-                    0, self.frame_texcoords_size as i64
-                );
+            if binding_point >= 0 && self.frames_ubo != -1 as u32 {
+                unsafe {
+                    gl::BindBufferBase(
+                        gl::UNIFORM_BUFFER,
+                        binding_point as GLuint,
+                        self.frames_ubo
+                    );
+                }
             }
         }
     }
 
-    pub fn generate_frames_ubo(&mut self) -> GLuint {
+    pub fn generate_frames_ubo(&mut self, binding_point: GLuint) -> GLuint {
         // Create ubo
         unsafe {
             gl::GenBuffers(1, &mut self.frames_ubo);
@@ -108,6 +111,10 @@ impl Texture {
                 ptr::null(),
                 gl::STATIC_DRAW
             );
+            gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
+
+            gl::BindBufferBase(gl::UNIFORM_BUFFER, binding_point, self.frames_ubo);
+            gl::BindBuffer(gl::UNIFORM_BUFFER, self.frames_ubo);
         }
         // Send the texcoords of every frame
 
@@ -119,12 +126,13 @@ impl Texture {
                     gl::UNIFORM_BUFFER,
                     frame_offset,
                     texcoords_size,
-                    transmute(&&frame.texcoords)
+                    transmute(&frame.texcoords)
                 );
             }
             // let test = unsafe { transmute_copy::<_, [f32, ..8]>(&frame.texcoords) };
             frame_offset += texcoords_size;
         }
+
         self.frames_ubo
     }
 

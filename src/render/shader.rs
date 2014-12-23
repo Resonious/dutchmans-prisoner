@@ -78,7 +78,6 @@ pub static STANDARD_VERTEX: &'static str = "
             texcoord.y = 1 - texcoord.y;
         }
     ";
-// TODO confirmed; the UBO is not being populated or bound correctly.
 
 pub static STANDARD_FRAGMENT: &'static str = "
         #version 330 core
