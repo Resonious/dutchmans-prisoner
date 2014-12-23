@@ -8,7 +8,7 @@ use std::ptr;
 // NOTE make sure these constants match what's in the shader.
 pub static ATTR_VERTEX_POS: u32 = 0;
 pub static ATTR_POSITION: u32 = 1;
-pub static ATTR_FRAME_OFFSET: u32 = 2;
+pub static ATTR_FRAME: u32 = 2;
 
 pub static FRAME_UNIFORM_MAX: i64 = 256;
 
@@ -19,7 +19,7 @@ pub static STANDARD_VERTEX: &'static str = "
         layout (location = 0) in vec2 vertex_pos;
         // Per instance:
         layout (location = 1) in vec2 position;       // in pixels
-        layout (location = 2) in int frame_offset;
+        layout (location = 2) in int frame;
 
         uniform vec2[256] frames;
         uniform vec2 screen_size;
@@ -62,16 +62,10 @@ pub static STANDARD_VERTEX: &'static str = "
                 0.0f, 1.0f
             );
 
-            if (frame_offset == -1)
+            if (frame == -1)
                 texcoord = brute_force_texcoord(gl_VertexID);
             else
-            {
-                // if (frame_offset == 8)
-                    // texcoord = brute_force_half_texcoord(gl_VertexID);
-                // else
-                // texcoord = brute_force_half_texcoord(gl_VertexID);
-                texcoord = frames[frame_offset + gl_VertexID];
-            }
+                texcoord = frames[frame * 4 + gl_VertexID];
             texcoord.y = 1 - texcoord.y;
         }
     ";

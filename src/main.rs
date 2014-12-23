@@ -80,12 +80,12 @@ fn set_sprite_attribute(vbo: GLuint) {
         assert_eq!(offset, 8);
 
         // == Frame ==
-        gl::EnableVertexAttribArray(shader::ATTR_FRAME_OFFSET);
+        gl::EnableVertexAttribArray(shader::ATTR_FRAME);
         gl::VertexAttribIPointer(
-            shader::ATTR_FRAME_OFFSET, 1, gl::INT,
+            shader::ATTR_FRAME, 1, gl::INT,
             size_of_sprite, as_void!(offset)
         );
-        gl::VertexAttribDivisor(shader::ATTR_FRAME_OFFSET, 1);
+        gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
@@ -94,7 +94,7 @@ fn set_sprite_attribute(vbo: GLuint) {
 struct SpriteData {
     position: Vector2<GLfloat>,
     // NOTE should always be a multiple of 4!
-    frame_offset: GLint
+    frame: GLint
 }
 
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
@@ -126,7 +126,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let zero_zero_positions = [
         SpriteData {
             position: Vector2::new(0.0, 0.0),
-            frame_offset: -1
+            frame: -1
         }
     ];
 
@@ -138,11 +138,11 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let crattle_positions = [
         SpriteData {
             position: Vector2::new(100.0, 100.0),
-            frame_offset: 8
+            frame: 2
         },
         SpriteData {
             position: Vector2::new(-200.0, -200.0),
-            frame_offset: 4
+            frame: 0
         }
     ];
 
