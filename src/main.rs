@@ -205,9 +205,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
     let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
-    // Doing this here for now to make sure it compiles and stuff:
-    // test_texture_manager_and_sprites();
-
     while !window.should_close() {
         glfw.poll_events();
 
@@ -278,56 +275,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     }
 }
 
-/*
-fn test_texture_manager_and_sprites() {
-    println!("==== Testing texture manager stuff ====\n");
-    let mut texture_manager = TextureManager::new();
-
-    let texture_index = texture_manager.load("testtex.png");
-    println!("Our texture's index is {}", texture_index);
-
-    {
-        let mut texture = &mut texture_manager.textures[texture_index];
-        texture.generate_frames(3, 32.0, 32.0);
-        println!("Generated default frames for {}:", texture.filename);
-        texture.frame_sets[0].print_frames();
-    }
-
-    let same_index = texture_manager.load("testtex.png");
-    println!("New texture's index is {}. Should be equal to {}", texture_index, same_index);
-
-    let next_index = texture_manager.load("zero-zero.png");
-    println!("Index of new image texture is {}\n", next_index);
-
-    println!("==== Display list time.... ====\n");
-
-    let mut sprite_space = [Sprite::blank(), ..50];
-    println!("Now we have sprice space! {}", sprite_space.len());
-    let mut display_list = DisplayList::new(&mut texture_manager, sprite_space.slice_mut(5, 35));
-    println!("Now display list! {}", display_list.sprites.len());
-
-    let sprite = unsafe { &*display_list.insert_sprite("testtex.png").unwrap() };
-    println!("our new sprite has the texture index of {}", sprite.texture_index);
-    match sprite.frames() {
-        Some(frames) => {
-            println!("Texcoords for first frame: {}", frames[0].texcoords);
-        }
-        None => panic!("COULD NOT GET FRAMES FROM SPRITE")
-    }
-
-    match sprite.texture() {
-        Some(texture) => unsafe {
-            println!("and its texture's filename is {}", (*texture).filename)
-        },
-        None => panic!("COULD NOT GET TEXTURE FROM SPRITE")
-    }
-
-    let sprite2 = unsafe { &*display_list.insert_sprite("zero-zero.png").unwrap() };
-
-    println!("Second sprite is in with texture index {}", sprite2.texture_index);
-}
-*/
-
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
@@ -340,9 +287,6 @@ fn main() {
     window.make_current();
 
     gl::load_with(|s| window.get_proc_address(s));
-
-    // let path = asset::path("basicshading.png");
-    // println!("here it is: {}", path.display());
 
     test_loop(&glfw, &window, &event);
 }
