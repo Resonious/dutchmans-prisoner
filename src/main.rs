@@ -12,10 +12,7 @@ use render::shader;
 use render::texture;
 use render::texture::TextureManager;
 use render::texture::Texcoords;
-// use render::sprite::Sprite;
-// use render::display_list::DisplayList;
 use std::mem::{transmute, size_of, size_of_val};
-// use std::rc::{Rc};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
@@ -69,7 +66,7 @@ macro_rules! stride(
 fn set_sprite_attribute(vbo: GLuint) {
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        let size_of_sprite = size_of::<Sprite>() as GLint;
+        let size_of_sprite = size_of::<SpriteData>() as GLint;
         assert_eq!(size_of_sprite, 12);
 
         // == Position ==
@@ -94,7 +91,7 @@ fn set_sprite_attribute(vbo: GLuint) {
     }
 }
 
-struct Sprite {
+struct SpriteData {
     position: Vector2<GLfloat>,
     // NOTE should always be a multiple of 4!
     frame_offset: GLint
@@ -127,7 +124,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     ];
 
     let zero_zero_positions = [
-        Sprite {
+        SpriteData {
             position: Vector2::new(0.0, 0.0),
             frame_offset: -1
         }
@@ -139,12 +136,12 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     // ];
 
     let crattle_positions = [
-        Sprite {
+        SpriteData {
             position: Vector2::new(100.0, 100.0),
             frame_offset: 8
         },
-        Sprite {
-            position: Vector2::new(-200.0, -400.0),
+        SpriteData {
+            position: Vector2::new(-200.0, -200.0),
             frame_offset: 4
         }
     ];
@@ -201,7 +198,7 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
             (width, height) => gl::Uniform2f(screen_size_uniform, width as f32, height as f32)
         }
     }
-    crattle_tex.set_frames_uniform(frames_uniform);
+    crattle_tex.generate_texcoords_buffer();
 
     let mut cam_pos = Vector2::<GLfloat>::new(0.0, 0.0);
 
@@ -258,15 +255,15 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
 
             // Draw zero-zero sign
             let zero_zero_len = zero_zero_positions.len();
-            zero_zero_tex.set(tex_uniform, sprite_size_uniform);
+            zero_zero_tex.set_full(tex_uniform, sprite_size_uniform);
             set_sprite_attribute(zero_zero_positions_vbo);
             gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
             // Draw CRATTLE!!!
-            crattle_tex.set(tex_uniform, sprite_size_uniform);
-            // HACK
-            gl::Uniform2f(sprite_size_uniform, 64.0, 64.0);
+            crattle_tex.set(tex_uniform, sprite_size_uniform, frames_uniform, 64.0, 64.0);
             set_sprite_attribute(crattle_positions_vbo);
-            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32);
+            gl::DrawElementsInstanced(
+                gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), crattle_positions.len() as i32
+            );
 
             check_error!();
         }

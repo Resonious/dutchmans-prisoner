@@ -70,36 +70,52 @@ pub struct Texture {
     pub filename: &'static str,
     pub frames: Vec<Frame>,
     pub frame_texcoords_size: i64,
+    pub texcoords_buffer: Vec<Texcoords>
 }
 
 impl Texture {
-    // Set the texture to the TEXTURE0 uniform slot.
-    pub fn set(&self, sampler_uniform: GLint, sprite_size_uniform: GLint) {
+    pub fn set_full(&self, sampler_uniform: GLint, sprite_size_uniform: GLint) {
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.id);
+            gl::Uniform1i(sampler_uniform, 0);
+            gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
+        }
+    }
+
+    // NOTE this expects generate_texcoords_buffer to have been called
+    // if there are frames.
+    pub fn set(&self, sampler_uniform:     GLint,
+                      sprite_size_uniform: GLint,
+                      frames_uniform:      GLint,
+                      width: f32, height: f32) {
         unsafe {
             assert!(self.frame_texcoords_size / 8 < shader::FRAME_UNIFORM_MAX);
 
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, self.id);
             gl::Uniform1i(sampler_uniform, 0);
-            // TODO this won't work if we want only a frame.
-            gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
+            gl::Uniform2f(sprite_size_uniform, width as f32, height as f32);
+
+            let frames_len = self.frames.len();
+
+            if frames_len > 0 {
+                gl::Uniform2fv(
+                    frames_uniform,
+                    frames_len as GLint * 4,
+                    transmute(&self.texcoords_buffer[0])
+                );
+            }
         }
     }
 
-    pub fn set_frames_uniform(&self, uniform_location: GLint) {
-        let texcoords_size = size_of::<Texcoords>();
+    pub fn generate_texcoords_buffer(&mut self) {
         let frames_len = self.frames.len();
-        let buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
+        if frames_len == 0 { return; }
+
+        self.texcoords_buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
             self.frames[i].texcoords.clone()
         });
-
-        unsafe {
-            gl::Uniform2fv(
-                uniform_location,
-                frames_len as GLint * 4,
-                transmute(&buffer[0])
-            );
-        }
     }
 
     // NOTE If you call this twice, and ask for smaller frame size on the
@@ -248,6 +264,7 @@ pub fn load_texture(filename: &'static str) -> Texture {
         filename: filename,
         frames: vec![],
         frame_texcoords_size: 0,
+        texcoords_buffer: vec![]
     }
 }
 
