@@ -93,7 +93,6 @@ fn set_sprite_attribute(vbo: GLuint) {
 
 struct SpriteData {
     position: Vector2<GLfloat>,
-    // NOTE should always be a multiple of 4!
     frame: GLint
 }
 
@@ -111,13 +110,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
         0.0, 0.0,
         0.0, 1.0
     */
-    let full_frame: [GLfloat, ..8] = [
-        1.0, 1.0,
-        1.0, 0.0,
-        0.0, 0.0,
-        0.0, 1.0
-    ];
-
     let indices: [GLuint, ..6] = [
         0, 1, 3,
         1, 2, 3

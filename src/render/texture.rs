@@ -267,35 +267,3 @@ pub fn load_texture(filename: &'static str) -> Texture {
         texcoords_buffer: vec![]
     }
 }
-
-// TODO EL DEPRECATO
-// pub fn generate_frames<'t>(texture: &'t Texture, count: uint, width: f32, height: f32) -> Box<[Frame]> {
-//     let tex_width  = texture.width as f32;
-//     let tex_height = texture.height as f32;
-// 
-//     let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
-// 
-//     Vec::from_fn(count, |_| {
-//         if current_pos.x + width > tex_width {
-//             current_pos.x = 0.0;
-//             current_pos.y -= height;
-//         }
-//         if current_pos.y < 0.0 {
-//             panic!(
-//                 "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
-//                 count, width, height, tex_width, tex_height
-//             );
-//         }
-// 
-//         let mut frame = Frame {
-//             position:  current_pos,
-//             size:      Vector2::new(width, height),
-//             texcoords: unsafe { uninitialized() }
-//         };
-//         frame.generate_texcoords(texture);
-// 
-//         current_pos.x += width;
-// 
-//         frame
-//     }).into_boxed_slice()
-// }
