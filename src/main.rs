@@ -12,6 +12,7 @@ use render::shader;
 use render::texture;
 use render::texture::TextureManager;
 use render::texture::Texcoords;
+use render::sprite::*;
 use std::mem::{transmute, size_of, size_of_val};
 use gl::types::*;
 use libc::c_void;
@@ -36,8 +37,6 @@ macro_rules! gen_buffer(
         }
     )
 )
-        // gen_buffer!(vbo, vertices, ARRAY_BUFFER);
-
 
 macro_rules! check_error(
     () => (
@@ -91,11 +90,6 @@ fn set_sprite_attribute(vbo: GLuint) {
     }
 }
 
-struct SpriteData {
-    position: Vector2<GLfloat>,
-    frame: GLint
-}
-
 fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let vertices: [GLfloat, ..8] = [
     //    position
@@ -143,8 +137,6 @@ fn test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     let     zero_zero_tex = unsafe { &*texture_manager.load("zero-zero.png") };
     let mut crattle_tex   = unsafe { &mut*texture_manager.load("tile-test.png") };
     crattle_tex.add_frames(10, 64, 64);
-
-    // let crattle_frames = texture::generate_frames(crattle_tex, 9, 97.0, 101.0);
 
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
