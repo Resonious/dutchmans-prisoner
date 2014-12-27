@@ -1,11 +1,12 @@
 [package]
 
-name = "dutchmans_prisoner"
+name = "dutchman_game"
 version = "0.0.1"
 authors = ["Resonious <metreckk@gmail.com>"]
 
-[dependencies.dutchman_game]
-path = "./dutchman-game"
+[lib]
+name = "dutchman_game"
+crate-type = ["dylib"]
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"

@@ -1,9 +1,8 @@
 [root]
-name = "dutchmans_prisoner"
+name = "dutchman_game"
 version = "0.0.1"
 dependencies = [
  "cgmath 0.0.1 (git+https://github.com/bjz/cgmath-rs)",
- "dutchman_game 0.0.1",
  "gl 0.0.2 (git+https://github.com/bjz/gl-rs)",
  "glfw 0.0.1 (git+https://github.com/bjz/glfw-rs)",
  "image 0.2.0-alpha.3 (git+https://github.com/PistonDevelopers/image)",
@@ -13,16 +12,6 @@ dependencies = [
 name = "cgmath"
 version = "0.0.1"
 source = "git+https://github.com/bjz/cgmath-rs#1831538f358d9a3d0f79a3732041ff8d0a712962"
-
-[[package]]
-name = "dutchman_game"
-version = "0.0.1"
-dependencies = [
- "cgmath 0.0.1 (git+https://github.com/bjz/cgmath-rs)",
- "gl 0.0.2 (git+https://github.com/bjz/gl-rs)",
- "glfw 0.0.1 (git+https://github.com/bjz/glfw-rs)",
- "image 0.2.0-alpha.3 (git+https://github.com/PistonDevelopers/image)",
-]
 
 [[package]]
 name = "gl"

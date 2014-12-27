@@ -6,6 +6,7 @@ extern crate cgmath;
 
 use std::mem::{transmute, size_of, size_of_val};
 
+use render::shader;
 use cgmath::*;
 use gl::types::*;
 
@@ -23,7 +24,7 @@ pub struct Sprite {
 impl Sprite {
     fn set(&self) {
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             let size_of_sprite = size_of::<SpriteData>() as GLint;
             assert_eq!(size_of_sprite, 12);
 
@@ -31,7 +32,7 @@ impl Sprite {
             gl::EnableVertexAttribArray(shader::ATTR_POSITION);
             gl::VertexAttribPointer(
                 shader::ATTR_POSITION, 2, gl::FLOAT, gl::FALSE as GLboolean,
-                size_of_sprite, as_void!(0)
+                size_of_sprite, transmute(0i64)
             );
             gl::VertexAttribDivisor(shader::ATTR_POSITION, 1);
             let offset = 2 * size_of::<GLfloat>() as i64;
@@ -41,7 +42,7 @@ impl Sprite {
             gl::EnableVertexAttribArray(shader::ATTR_FRAME);
             gl::VertexAttribIPointer(
                 shader::ATTR_FRAME, 1, gl::INT,
-                size_of_sprite, as_void!(offset)
+                size_of_sprite, transmute(offset)
             );
             gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
 
