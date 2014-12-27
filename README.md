@@ -1,4 +1,4 @@
-legame
+The Dutchman's Prisoner
 ======
 
-Super basic game scaffold in Rust. (Not actually functional yet)
+10/10 best game
