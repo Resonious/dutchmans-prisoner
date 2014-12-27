@@ -9,7 +9,43 @@ use std::mem::{transmute, size_of, size_of_val};
 use cgmath::*;
 use gl::types::*;
 
+#[deriving(Copy)]
 pub struct SpriteData {
     pub position: Vector2<GLfloat>,
     pub frame: GLint
+}
+
+pub struct Sprite {
+    pub vbo: GLuint,
+    pub buffer_index: uint
+}
+
+impl Sprite {
+    fn set(&self) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            let size_of_sprite = size_of::<SpriteData>() as GLint;
+            assert_eq!(size_of_sprite, 12);
+
+            // == Position ==
+            gl::EnableVertexAttribArray(shader::ATTR_POSITION);
+            gl::VertexAttribPointer(
+                shader::ATTR_POSITION, 2, gl::FLOAT, gl::FALSE as GLboolean,
+                size_of_sprite, as_void!(0)
+            );
+            gl::VertexAttribDivisor(shader::ATTR_POSITION, 1);
+            let offset = 2 * size_of::<GLfloat>() as i64;
+            assert_eq!(offset, 8);
+
+            // == Frame ==
+            gl::EnableVertexAttribArray(shader::ATTR_FRAME);
+            gl::VertexAttribIPointer(
+                shader::ATTR_FRAME, 1, gl::INT,
+                size_of_sprite, as_void!(offset)
+            );
+            gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        }
+    }
 }
