@@ -13,17 +13,23 @@ use glfw::{Context, Action, Key};
 
 use std::mem::{uninitialized, transmute, size_of, size_of_val};
 use gl::types::*;
-use libc::c_void;
+use libc::{c_void, c_char};
 use std::ptr;
 use cgmath::*;
 use std::dynamic_lib::DynamicLibrary;
 use std::os;
+use std::io::fs;
 use std::io::fs::PathExtensions;
 use std::mem;
+use std::str;
+use std::io::timer::sleep;
+use std::time::duration::Duration;
 
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
 type TestLoopFn = extern "C" fn(&mut u8, &glfw::Glfw, &glfw::Window, &GlfwEvent);
 type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8);
+
+static DYLIB_DIR: &'static str = "./dutchman-game";
 
 extern "C" {
     // === GLFW stuff: ===
@@ -33,12 +39,34 @@ extern "C" {
     static _glfw: u8;
 }
 
-fn load_game_dylib() -> DynamicLibrary {
+fn game_dylib_path() -> Option<Path> {
     // NOTE this assumes we are running from the project root.
-    let game_path     = Path::new("./dutchman-game/dutchman_game.dll");
-    let abs_game_path = os::make_absolute(&game_path).unwrap();
-    // println!("path: {} abs path: {}", game_path.display(), abs_game_path.display());
-    match DynamicLibrary::open(Some(&abs_game_path)) {
+    // let game_path = Path::new("./dutchman-game/dutchman_game.dll");
+    // os::make_absolute(&game_path).unwrap()
+
+    let dir = Path::new(DYLIB_DIR);
+    let contents = fs::readdir(&dir).unwrap();
+    for entry in contents.iter() {
+        if entry.is_dir() { continue; }
+        let file_name = entry.filename_str().unwrap();
+
+        if file_name.contains("dutchman_game") && file_name.contains(".dll") {
+            println!("Game dylib path: {}", entry.display());
+            return Some(os::make_absolute(entry).unwrap());
+        }
+    }
+    return None;
+}
+
+fn load_game_dylib_from(path: &Path) -> DynamicLibrary {
+    match DynamicLibrary::open(Some(path)) {
+        Ok(l) => l,
+        Err(e) => panic!("Couldn't load game lib: {}", e)
+    }
+}
+
+fn load_game_dylib() -> DynamicLibrary {
+    match DynamicLibrary::open(game_dylib_path()) {
         Ok(l) => l,
         Err(e) => panic!("Couldn't load game lib: {}", e)
     }
@@ -68,12 +96,76 @@ fn static_test_loop_fn(lib: &DynamicLibrary) -> () {
 // === Winapi stuff for file listening. ===
 #[cfg(target_os = "windows")]
 extern "C" {
-
+    pub fn FindFirstChangeNotificationA(path:          *const c_char,
+                                       watch_subtree: bool,
+                                       filter:        int)
+                                        -> *const c_void;
+    pub fn FindNextChangeNotification(handle: *const c_void) -> bool;
+    pub fn WaitForSingleObject(handle:     *const c_void,
+                               timeout_ms: int)
+                                -> int;
+    pub fn GetLastError() -> int;
 }
+static INFINITE: int = 0xFFFFFFFF;
+static FILE_NOTIFY_CHANGE_LAST_WRITE: int = 0x00000010;
+static INVALID_HANDLE_VALUE: *const c_void = -1 as *const c_void;
 
 #[cfg(target_os = "windows")]
-fn watch_for_updated_dll(tx: &Sender<Box<DynamicLibrary>>) {
-    loop {
+fn watch_for_updated_dll(tx: &Sender<(Path, DynamicLibrary, LoadFn, TestLoopFn)>) {
+    // current dylib filename
+    let mut current_dylib_path = game_dylib_path().unwrap();
+    let dylib_dir = current_dylib_path.dir_path();
+
+    unsafe {
+        let handle = dylib_dir.with_c_str(|s|
+            FindFirstChangeNotificationA(s, false, FILE_NOTIFY_CHANGE_LAST_WRITE)
+        );
+
+        if handle == INVALID_HANDLE_VALUE {
+            panic!("Failed to acquire file change notification handle: {}", GetLastError());
+        }
+
+        loop {
+            match WaitForSingleObject(handle, INFINITE) {
+                // File was changed (or created)
+                0x00000000 => {
+                    let files = fs::readdir(&dylib_dir).unwrap();
+                    for file in files.iter() {
+                        if file.is_dir() { continue; }
+                        let file_name = file.filename_str().unwrap();
+
+                        if file_name.contains("dutchman_game") &&
+                           file_name.contains(".dll") &&
+                           file_name != current_dylib_path.filename_str().unwrap()
+                        {
+                            println!("New game dylib path: {}\nCurrent game dylib path: {}",
+                                     file.display(), current_dylib_path.display());
+                            println!("-----------");
+
+                            let lib = load_game_dylib_from(file);
+                            match test_loop_fn(&lib) {
+                                (load_fn, test_loop_fn) => {
+                                    tx.send((file.clone(), lib, load_fn, test_loop_fn));
+                                }
+                            }
+
+                            current_dylib_path = file.clone();
+                            break;
+                        }
+                    }
+                }
+
+                0xFFFFFFFF =>
+                    panic!("Error occurred during directory wait! {}", GetLastError()),
+
+                _ => println!("Something happened but don't care.")
+            }
+
+            if !FindNextChangeNotification(handle) {
+                panic!("Couldn't rewatch directory! {}", GetLastError());
+            }
+        }
+        println!("No longer watching for DLL updates!");
     }
 }
 
@@ -100,11 +192,12 @@ fn main() {
         println!(".exe: glfwGetCurrentContext(): {}", glfwGetCurrentContext());
     }
 
-    let mut lib = box load_game_dylib();
+    let mut current_dylib_path = game_dylib_path().unwrap();
+    let mut lib = load_game_dylib_from(&current_dylib_path);
 
     let mut load      = unsafe { uninitialized() };
     let mut test_loop = unsafe { uninitialized() };
-    match test_loop_fn(&*lib) {
+    match test_loop_fn(&lib) {
         (load_fn, test_loop_fn) => {
             load      = load_fn;
             test_loop = test_loop_fn;
@@ -121,14 +214,19 @@ fn main() {
 
     while !window.should_close() {
         match rx.try_recv() {
-            Ok(new_lib) => {
-                lib = new_lib;
-                match test_loop_fn(&*lib) {
-                    (load_fn, test_loop_fn) => {
-                        load      = load_fn;
-                        test_loop = test_loop_fn;
+            Ok((new_lib_path, new_lib, new_load, new_test_loop)) => {
+                lib       = new_lib;
+                load      = new_load;
+                test_loop = new_test_loop;
+
+                loop {
+                    match fs::unlink(&current_dylib_path) {
+                        Err(e) => continue,
+                        _ => break
                     }
                 }
+                current_dylib_path = new_lib_path;
+
                 load(&_glfw, &window, &mut game_memory[0]);
             },
             _ => {}

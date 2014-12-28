@@ -276,7 +276,7 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
     unsafe {
         gl::Uniform2f(game.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
 
-        gl::ClearColor(0.0, 0.3, 0.3, 1.0);
+        gl::ClearColor(0.3, 0.3, 0.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
         // Draw zero-zero sign
