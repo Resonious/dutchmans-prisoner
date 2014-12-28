@@ -22,19 +22,19 @@ use std::io::fs::PathExtensions;
 use std::mem;
 
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
-type TestLoopFn = extern "C" fn(&glfw::Glfw, &glfw::Window, &GlfwEvent);
+type TestLoopFn = extern "C" fn(&mut u8, &glfw::Glfw, &glfw::Window, &GlfwEvent);
+type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8);
 
 extern "C" {
     pub fn glfwGetCurrentContext() -> u64;
-    pub fn glfwMakeContextCurrent(window: *mut u8);
     pub fn glfwSetTestIdent(i: int);
     pub fn glfwTestIdent() -> int;
     static _glfw: u8;
 }
 
-fn test_loop_fn() -> TestLoopFn {
+fn test_loop_fn() -> (LoadFn, TestLoopFn) {
     // NOTE this assumes we are running from the project root.
-    let game_path = Path::new("./dutchman-game/target/dutchman_game.dll");
+    let game_path = Path::new("./dutchman-game/dutchman_game.dll");
     let abs_game_path = os::make_absolute(&game_path).unwrap();
     // println!("path: {} abs path: {}", game_path.display(), abs_game_path.display());
     let lib = match DynamicLibrary::open(Some(&abs_game_path)) {
@@ -43,32 +43,24 @@ fn test_loop_fn() -> TestLoopFn {
     };
 
     unsafe {
-        type TestLoopFn = extern "C" fn(&glfw::Glfw, &glfw::Window, &GlfwEvent);
-        let test_loop: TestLoopFn = match lib.symbol::<u8>("old_test_loop") {
+        let test_loop: TestLoopFn = match lib.symbol::<u8>("update_and_render") {
             Ok(f) => transmute(f),
             Err(e) => panic!("Damn! {}", e)
         };
-        println!("ABOUT TO CALL IT, AND THEN...");
-        type TestPFn = extern "C" fn();
-        let test_p: TestPFn = match lib.symbol::<u8>("update_and_render") {
-            Ok(f) => transmute(f),
-            Err(e) => panic!(":(")
-        };
-        test_p();
 
-        type CopyGlfwFn = extern "C" fn(*const u8);
-        let copy_glfw: CopyGlfwFn = match lib.symbol::<u8>("copy_glfw") {
+        let load: LoadFn = match lib.symbol::<u8>("load") {
             Ok(f) => transmute(f),
             Err(e) => panic!(";_;")
         };
-        copy_glfw(&_glfw);
 
+        // TODO no
         mem::forget(lib);
-        test_loop
+        (load, test_loop)
     }
 }
 
 fn static_test_loop_fn() -> () {
+    panic!("Hey make this make sense.");
     // dutchman_game::old_test_loop
 }
 
@@ -88,16 +80,16 @@ fn main() {
     unsafe {
         glfwSetTestIdent(99);
         println!(".exe: Test ident: {}", glfwTestIdent());
-    }
-
-    gl::load_with(|s| window.get_proc_address(s));
-
-    unsafe {
         println!(".exe: glfwGetCurrentContext(): {}", glfwGetCurrentContext());
     }
 
-    let test_loop = test_loop_fn();
+    let (load, test_loop) = test_loop_fn();
+    // TODO Stack memory is nice, but might want to box it if it gets too big.
+    let mut game_memory = [0u8, ..1024];
 
-    test_loop(&glfw, &window, &event);
+    unsafe { load(&_glfw, &window, &mut game_memory[0]); }
+    while !window.should_close() {
+        test_loop(&mut game_memory[0], &glfw, &window, &event);
+    }
     println!("Hey, I compiled and ran!");
 }

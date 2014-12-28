@@ -1,2 +1,2 @@
 cargo build
-mv target/dutchman_game*.dll target/dutchman_game.dll
+cp target/dutchman_game*.dll ./dutchman_game.dll

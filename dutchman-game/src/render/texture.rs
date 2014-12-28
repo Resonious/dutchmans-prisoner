@@ -6,7 +6,7 @@ extern crate cgmath;
 
 use cgmath::*;
 use gl::types::*;
-use std::mem::{size_of, transmute, uninitialized, transmute_copy};
+use std::mem::{size_of, transmute, zeroed, uninitialized, transmute_copy};
 use std::vec::Vec;
 use std::ptr;
 use self::image::{GenericImage};
@@ -170,12 +170,17 @@ impl Texture {
 
 // Makes sure the same texture is never loaded twice.
 pub struct TextureManager {
-    pub textures: Vec<Texture>
+    // NOTE Remember to bump this up if you run into issues.
+    pub textures: [Texture, ..10],
+    next_index: uint
 }
 
 impl TextureManager {
     pub fn new() -> TextureManager {
-        TextureManager { textures: vec!() }
+        TextureManager {
+            textures: unsafe { zeroed() },
+            next_index: 0
+        }
     }
 
     // If the texture with the given file name is present, return
@@ -190,8 +195,10 @@ impl TextureManager {
             }
         }
 
-        let index = textures.len();
-        textures.push(load_texture(filename));
+        let index = self.next_index;
+        self.next_index += 1;
+        // textures.push(load_texture(filename));
+        textures[index] = load_texture(filename);
         // println!("(TextureManager) made it!");
         return &mut textures[index];
     }
@@ -230,18 +237,14 @@ impl TextureManager {
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
 pub fn load_texture(filename: &'static str) -> Texture {
-    println!("We are in laod_texture");
     let img = image::open(&asset::path(filename)).unwrap();
-    println!("Opened image");
     let (width, height) = match img.dimensions() { (w, h) => (w as i32, h as i32) };
 
     let mut tex_id: GLuint = 0;
 
     unsafe {
-        println!("About to gen and bind textures");
         gl::GenTextures(1, &mut tex_id);
         gl::BindTexture(gl::TEXTURE_2D, tex_id);
-        println!("Genned and bound textures");
 
         // TODO Maybe change these around I dunno.....
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
