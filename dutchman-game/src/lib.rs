@@ -64,13 +64,12 @@ macro_rules! stride(
 extern "C" {
     pub fn glfwGetCurrentContext() -> u64;
     pub fn glfwMakeContextCurrent(window: *mut u8);
+    // NOTE This is a custom function.
     pub fn glfwCopyDataFrom(data: *const u8);
     pub fn glfwTestIdent() -> int;
     pub fn glfwInit() -> bool;
 }
 
-
-// TODO BLAHHHHHHHH
 fn set_sprite_attribute(vbo: GLuint) {
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);

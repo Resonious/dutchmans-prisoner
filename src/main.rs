@@ -11,7 +11,7 @@ extern crate cgmath;
 
 use glfw::{Context, Action, Key};
 
-use std::mem::{transmute, size_of, size_of_val};
+use std::mem::{uninitialized, transmute, size_of, size_of_val};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
@@ -26,22 +26,25 @@ type TestLoopFn = extern "C" fn(&mut u8, &glfw::Glfw, &glfw::Window, &GlfwEvent)
 type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8);
 
 extern "C" {
+    // === GLFW stuff: ===
     pub fn glfwGetCurrentContext() -> u64;
     pub fn glfwSetTestIdent(i: int);
     pub fn glfwTestIdent() -> int;
     static _glfw: u8;
 }
 
-fn test_loop_fn() -> (LoadFn, TestLoopFn) {
+fn load_game_dylib() -> DynamicLibrary {
     // NOTE this assumes we are running from the project root.
-    let game_path = Path::new("./dutchman-game/dutchman_game.dll");
+    let game_path     = Path::new("./dutchman-game/dutchman_game.dll");
     let abs_game_path = os::make_absolute(&game_path).unwrap();
     // println!("path: {} abs path: {}", game_path.display(), abs_game_path.display());
-    let lib = match DynamicLibrary::open(Some(&abs_game_path)) {
+    match DynamicLibrary::open(Some(&abs_game_path)) {
         Ok(l) => l,
         Err(e) => panic!("Couldn't load game lib: {}", e)
-    };
+    }
+}
 
+fn test_loop_fn(lib: &DynamicLibrary) -> (LoadFn, TestLoopFn) {
     unsafe {
         let test_loop: TestLoopFn = match lib.symbol::<u8>("update_and_render") {
             Ok(f) => transmute(f),
@@ -53,15 +56,29 @@ fn test_loop_fn() -> (LoadFn, TestLoopFn) {
             Err(e) => panic!(";_;")
         };
 
-        // TODO no
-        mem::forget(lib);
         (load, test_loop)
     }
 }
 
-fn static_test_loop_fn() -> () {
+fn static_test_loop_fn(lib: &DynamicLibrary) -> () {
     panic!("Hey make this make sense.");
     // dutchman_game::old_test_loop
+}
+
+// === Winapi stuff for file listening. ===
+#[cfg(target_os = "windows")]
+extern "C" {
+
+}
+
+#[cfg(target_os = "windows")]
+fn watch_for_updated_dll(tx: &Sender<Box<DynamicLibrary>>) {
+    loop {
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn watch_for_updated_dll(tx: Sender<(LoadFn, TestLoopFn)>) {
 }
 
 fn main() {
@@ -83,12 +100,40 @@ fn main() {
         println!(".exe: glfwGetCurrentContext(): {}", glfwGetCurrentContext());
     }
 
-    let (load, test_loop) = test_loop_fn();
+    let mut lib = box load_game_dylib();
+
+    let mut load      = unsafe { uninitialized() };
+    let mut test_loop = unsafe { uninitialized() };
+    match test_loop_fn(&*lib) {
+        (load_fn, test_loop_fn) => {
+            load      = load_fn;
+            test_loop = test_loop_fn;
+        }
+    }
+
     // TODO Stack memory is nice, but might want to box it if it gets too big.
-    let mut game_memory = [0u8, ..1024];
+    let mut game_memory = [0u8, ..2048];
 
     unsafe { load(&_glfw, &window, &mut game_memory[0]); }
+
+    let (tx, rx) = channel();
+    spawn(move || watch_for_updated_dll(&tx));
+
     while !window.should_close() {
+        match rx.try_recv() {
+            Ok(new_lib) => {
+                lib = new_lib;
+                match test_loop_fn(&*lib) {
+                    (load_fn, test_loop_fn) => {
+                        load      = load_fn;
+                        test_loop = test_loop_fn;
+                    }
+                }
+                load(&_glfw, &window, &mut game_memory[0]);
+            },
+            _ => {}
+        }
+
         test_loop(&mut game_memory[0], &glfw, &window, &event);
     }
     println!("Hey, I compiled and ran!");

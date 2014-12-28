@@ -1,0 +1,6 @@
+// NOTE for Windows, this line should be included in glfw's init.c file:
+
+GLFWAPI void glfwCopyDataFrom(_GLFWlibrary* foreignGlfw)
+{
+    memcpy(&_glfw, foreignGlfw, sizeof(_GLFWlibrary));
+}
