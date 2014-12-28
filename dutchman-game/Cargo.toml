@@ -11,6 +11,9 @@ crate-type = ["dylib"]
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
 
+[dependencies.gl_generator]
+git = "https://github.com/bjz/gl-rs"
+
 [dependencies.glfw]
 git = "https://github.com/bjz/glfw-rs"
 default-features = false

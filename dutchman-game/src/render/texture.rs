@@ -230,14 +230,18 @@ impl TextureManager {
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
 pub fn load_texture(filename: &'static str) -> Texture {
+    println!("We are in laod_texture");
     let img = image::open(&asset::path(filename)).unwrap();
+    println!("Opened image");
     let (width, height) = match img.dimensions() { (w, h) => (w as i32, h as i32) };
 
     let mut tex_id: GLuint = 0;
 
     unsafe {
+        println!("About to gen and bind textures");
         gl::GenTextures(1, &mut tex_id);
         gl::BindTexture(gl::TEXTURE_2D, tex_id);
+        println!("Genned and bound textures");
 
         // TODO Maybe change these around I dunno.....
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);

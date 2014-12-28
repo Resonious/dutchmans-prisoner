@@ -7,6 +7,8 @@ extern crate glfw;
 extern crate gl;
 extern crate cgmath;
 
+// extern crate dutchman_game;
+
 use glfw::{Context, Action, Key};
 
 use std::mem::{transmute, size_of, size_of_val};
@@ -17,34 +19,20 @@ use cgmath::*;
 use std::dynamic_lib::DynamicLibrary;
 use std::os;
 use std::io::fs::PathExtensions;
+use std::mem;
 
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
+type TestLoopFn = extern "C" fn(&glfw::Glfw, &glfw::Window, &GlfwEvent);
 
-#[cfg(package_name = "dutchmans_prisoner")]
-fn test_static() {
-    println!("I AM STATIC");
+extern "C" {
+    pub fn glfwGetCurrentContext() -> u64;
+    pub fn glfwMakeContextCurrent(window: *mut u8);
+    pub fn glfwSetTestIdent(i: int);
+    pub fn glfwTestIdent() -> int;
+    static _glfw: u8;
 }
 
-#[cfg(not(name = "dutchmans_prisoner"))]
-fn test_static() {
-    println!("I AM NOTTTTTTTTTTTTTTT STATIC");
-}
-
-fn main() {
-    test_static();
-
-    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-
-    let (window, event) = glfw
-        .create_window(480, 480, "The Flying Dutchman's Prisoner", glfw::WindowMode::Windowed)
-        .expect("OH GOD WHY");
-
-    window.set_key_polling(true);
-    window.set_size_polling(true);
-    window.make_current();
-
-    gl::load_with(|s| window.get_proc_address(s));
-
+fn test_loop_fn() -> TestLoopFn {
     // NOTE this assumes we are running from the project root.
     let game_path = Path::new("./dutchman-game/target/dutchman_game.dll");
     let abs_game_path = os::make_absolute(&game_path).unwrap();
@@ -67,9 +55,49 @@ fn main() {
             Err(e) => panic!(":(")
         };
         test_p();
-        test_loop(&glfw, &window, &event);
+
+        type CopyGlfwFn = extern "C" fn(*const u8);
+        let copy_glfw: CopyGlfwFn = match lib.symbol::<u8>("copy_glfw") {
+            Ok(f) => transmute(f),
+            Err(e) => panic!(";_;")
+        };
+        copy_glfw(&_glfw);
+
+        mem::forget(lib);
+        test_loop
+    }
+}
+
+fn static_test_loop_fn() -> () {
+    // dutchman_game::old_test_loop
+}
+
+fn main() {
+    // test_static();
+
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+
+    let (window, event) = glfw
+        .create_window(480, 480, "The Flying Dutchman's Prisoner", glfw::WindowMode::Windowed)
+        .expect("OH GOD WHY");
+
+    window.set_key_polling(true);
+    window.set_size_polling(true);
+    window.make_current();
+
+    unsafe {
+        glfwSetTestIdent(99);
+        println!(".exe: Test ident: {}", glfwTestIdent());
     }
 
-    // test_loop(&glfw, &window, &event);
+    gl::load_with(|s| window.get_proc_address(s));
+
+    unsafe {
+        println!(".exe: glfwGetCurrentContext(): {}", glfwGetCurrentContext());
+    }
+
+    let test_loop = test_loop_fn();
+
+    test_loop(&glfw, &window, &event);
     println!("Hey, I compiled and ran!");
 }

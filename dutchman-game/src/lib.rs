@@ -36,7 +36,7 @@ macro_rules! gen_buffer(
             );
         }
     )
-)
+);
 
 macro_rules! check_error(
     () => (
@@ -52,15 +52,15 @@ macro_rules! check_error(
             _ => panic!("I DON'T KNOW. FULL BANANNACAKES.")
         }
     )
-)
+);
 
 macro_rules! as_void(
     ($val:expr) => (transmute::<i64, *const c_void>($val))
-)
+);
 
 macro_rules! stride(
     ($val:expr) => (($val * size_of::<GLfloat>() as i32))
-)
+);
 
 
 // TODO BLAHHHHHHHH
@@ -92,8 +92,25 @@ fn set_sprite_attribute(vbo: GLuint) {
     }
 }
 
+
+extern "C" {
+    pub fn glfwGetCurrentContext() -> u64;
+    pub fn glfwMakeContextCurrent(window: *mut u8);
+    pub fn glfwCopyDataFrom(data: *const u8);
+    pub fn glfwTestIdent() -> int;
+}
+
+#[no_mangle]
+pub extern "C" fn copy_glfw(data: *const u8) {
+    unsafe { glfwCopyDataFrom(data); }
+}
+
 #[no_mangle]
 pub extern "C" fn old_test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    window.make_current();
+    gl::load_with(|s| window.get_proc_address(s));
+
     let vertices: [GLfloat, ..8] = [
     //    position
          2.0,  2.0, //   1.0, 1.0, // Top right
@@ -149,7 +166,6 @@ pub extern "C" fn old_test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event:
     let mut zero_zero_positions_vbo: GLuint = 0;
     let mut crattle_positions_vbo: GLuint = 0;
 
-    println!("WE ARE IN");
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
         gl::BindVertexArray(vao);
@@ -259,11 +275,6 @@ pub extern "C" fn old_test_loop(glfw: &glfw::Glfw, window: &glfw::Window, event:
 
         window.swap_buffers();
     }
-}
-
-#[no_mangle]
-pub extern "C" fn update_and_render() {
-    println!("lmFAO");
 }
 
 #[test]

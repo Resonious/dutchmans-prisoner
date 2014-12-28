@@ -102,7 +102,7 @@ macro_rules! check_log(
             }
         }
     )
-)
+);
 
 macro_rules! make_shader(
     ($name:ident: $shader_type:ident) => (
@@ -115,20 +115,20 @@ macro_rules! make_shader(
             sh
         }
     )
-)
+);
 
 pub fn create_program(vert: &str, frag: &str) -> GLuint {
     let vert_id = make_shader!(vert: VERTEX_SHADER);
     check_log!("VERTEX SHADER"
         GetShaderiv | GetShaderInfoLog
         vert_id COMPILE_STATUS
-    )
+    );
 
     let frag_id = make_shader!(frag: FRAGMENT_SHADER);
     check_log!("FRAGMENT SHADER"
         GetShaderiv | GetShaderInfoLog
         vert_id COMPILE_STATUS
-    )
+    );
 
     let program_id = unsafe { gl::CreateProgram() };
     unsafe {
@@ -140,7 +140,7 @@ pub fn create_program(vert: &str, frag: &str) -> GLuint {
     check_log!("SHADER PROGRAM"
         GetProgramiv | GetProgramInfoLog
         program_id LINK_STATUS
-    )
+    );
 
     unsafe {
         gl::DeleteShader(vert_id);

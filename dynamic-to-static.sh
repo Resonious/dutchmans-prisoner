@@ -1,3 +1,9 @@
 mv Cargo.toml Dynamic.Cargo.toml
 mv Static.Cargo.toml Cargo.toml
-# sed -e "3s/.../.../" /dir/file > /dir/temp_file
+
+sed 's/\/\/ extern crate dutchman_game;extern crate dutchman_game;/' <src/main.rs > src/tmp.main.rs
+mv src/tmp.main.rs src/main.rs
+sed 's/fn test_loop_fn()/fn dynamic_test_loop_fn()/' <src/main.rs > src/tmp.main.rs
+mv src/tmp.main.rs src/main.rs
+sed 's/fn static_test_loop_fn()/fn test_loop_fn()/' <src/main.rs > src/tmp.main.rs
+mv src/tmp.main.rs src/main.rs

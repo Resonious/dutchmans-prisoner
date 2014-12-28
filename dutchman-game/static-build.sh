@@ -1,2 +1,2 @@
-sed 's/["dylib"]/["staticlib"]/' <Cargo.toml > tmp.Cargo.toml
+sed s_\\[\"dylib\"\\]_\\[\"rlib\"\\]_ <Cargo.toml > tmp.Cargo.toml
 mv tmp.Cargo.toml Cargo.toml

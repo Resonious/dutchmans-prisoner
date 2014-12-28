@@ -1,8 +1,11 @@
 [package]
 
-name = "dutchmans-prisoner"
+name = "dutchmans_prisoner"
 version = "0.0.1"
 authors = ["Resonious <metreckk@gmail.com>"]
+
+[dependencies.dutchman_game]
+path = "./dutchman-game"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
