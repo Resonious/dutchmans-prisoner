@@ -150,14 +150,10 @@ impl Texture {
         unsafe { assert_eq!(frames_len, (&*space).len()); }
         if frames_len == 0 { return; }
 
-        // self.texcoords_buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
-            // self.frame_at(i).texcoords.clone()
-        // });
         self.texcoords_space = space;
         for i in range(0u, frames_len) {
             let texcoords = self.frame_at(i).texcoords.clone();
             self.put_texcoord(i, texcoords);
-            // texcoords[i] = self.frame_at(i).texcoords.clone()
         }
     }
 
@@ -174,12 +170,7 @@ impl Texture {
             let mut frames = self.frames_mut();
 
             let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
-            // let mut current_pos = match frames_len {
-            //     0 => Vector2::<f32>::new(0.0, tex_height - height),
-            //     _ => self.frames[frames_len - 1].position + Vector2::new(width, 0.0)
-            // };
 
-            // self.frames.grow_fn(count, |_| {
             for i in range(0u, count) {
                 if current_pos.x + width > tex_width {
                     current_pos.x = 0.0;

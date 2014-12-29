@@ -12,7 +12,7 @@ use render::shader;
 use render::texture;
 use render::texture::{Texture, Texcoords, TextureManager, Frame};
 use render::sprite::*;
-use std::mem::{transmute, size_of, size_of_val};
+use std::mem::{transmute, size_of, size_of_val, zeroed};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
@@ -139,11 +139,11 @@ pub struct Game {
     pub zero_zero_vbo: GLuint,
     pub zero_zero_positions: [SpriteData, ..1],
 
-    pub crattle_tex: *mut Texture,
-    pub crattle_frame_space: [Frame, ..10], // <- number of frames
-    pub crattle_texcoords_space: [Texcoords, ..10], // Perhaps we can remove frames
-    pub crattle_vbo: GLuint,
-    pub crattle_positions: [SpriteData, ..2],
+    pub tile_tex: *mut Texture,
+    pub tile_frame_space: [Frame, ..10], // <- number of frames
+    pub tile_texcoords_space: [Texcoords, ..10], // Perhaps we can remove frames
+    pub tile_vbo: GLuint,
+    pub tile_positions: [SpriteData, ..10*10],
 
     pub cam_pos: Vector2<GLfloat>,
 }
@@ -176,20 +176,46 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
             }
         ];
 
-        game.crattle_tex = game.texture_manager.load("tile-test.png");
-        let mut crattle_tex = unsafe { &mut *game.crattle_tex };
-        crattle_tex.add_frames(game.crattle_frame_space.as_mut_slice(), 64, 64);
-        game.crattle_positions = [
-            SpriteData {
-                position: Vector2::new(100.0, 100.0),
-                frame: 2
-            },
-            SpriteData {
-                position: Vector2::new(-200.0, -200.0),
-                frame: 0
-            }
+        game.tile_tex = game.texture_manager.load("tile-test.png");
+        let mut tile_tex = unsafe { &mut *game.tile_tex };
+        tile_tex.add_frames(game.tile_frame_space.as_mut_slice(), 64, 64);
+        // game.tile_positions = [
+        //     SpriteData {
+        //         position: Vector2::new(100.0, 100.0),
+        //         frame: 2
+        //     },
+        //     SpriteData {
+        //         position: Vector2::new(-200.0, -200.0),
+        //         frame: 0
+        //     }
+        // ];
+         let tilemap: [[uint, ..10], ..10] = [
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 5, 5, 5, 5, 5, 5, 5, 5, 2],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
         ];
- 
+
+        // NOTE Slow but works
+        game.tile_positions = unsafe { zeroed() };
+        let mut count = 0u;
+        for (x, ys) in tilemap.iter().enumerate() {
+            for (y, frame) in ys.iter().enumerate() {
+                game.tile_positions[count] = SpriteData {
+                    position: Vector2::new(x as f32 * 64.0, y as f32 * 64.0 + 128.0),
+                    frame: *frame as i32
+                };
+                count += 1;
+            }
+        }
+
+
         // === Generate global VAO ===
         unsafe {
             gl::GenVertexArrays(1, &mut game.vao);
@@ -205,7 +231,7 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 
             // === Generate (by hand) stuff on the screen ===
             gen_buffer!(game.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
-            gen_buffer!(game.crattle_vbo, game.crattle_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
+            gen_buffer!(game.tile_vbo, game.tile_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
@@ -224,7 +250,7 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
                 (width, height) => gl::Uniform2f(game.screen_size_uniform, width as f32, height as f32)
             }
         }
-        crattle_tex.generate_texcoords_buffer(&mut game.crattle_texcoords_space);
+        tile_tex.generate_texcoords_buffer(&mut game.tile_texcoords_space);
 
         game.cam_pos = Vector2::new(0.0, 0.0);
     }
@@ -234,7 +260,7 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: &glfw::Window, event: &GlfwEvent) {
     glfw.poll_events();
 
-    let mut crattle_tex = unsafe { &mut *game.crattle_tex };
+    let mut tile_tex = unsafe { &mut *game.tile_tex };
     let zero_zero_tex   = unsafe { &*game.zero_zero_tex };
 
     for (_, event) in glfw::flush_messages(event) {
@@ -265,8 +291,7 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
                 },
 
             glfw::WindowEvent::Key(Key::B, _, Action::Release, _) => {
-                let frames = crattle_tex.frames();
-                println!("third frame position of crattle tex is {}", frames[2].position);
+                println!("Game has {} tile positions", game.tile_positions.len());
             },
 
             glfw::WindowEvent::Size(width, height) => unsafe {
@@ -290,11 +315,11 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
         zero_zero_tex.set_full(game.tex_uniform, game.sprite_size_uniform);
         set_sprite_attribute(game.zero_zero_vbo);
         gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
-        // Draw CRATTLE!!!
-        crattle_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 64.0, 64.0);
-        set_sprite_attribute(game.crattle_vbo);
+        // Draw tile!!!
+        tile_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 64.0, 64.0);
+        set_sprite_attribute(game.tile_vbo);
         gl::DrawElementsInstanced(
-            gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.crattle_positions.len() as i32
+            gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.tile_positions.len() as i32
         );
 
         check_error!();

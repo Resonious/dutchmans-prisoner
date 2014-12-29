@@ -51,7 +51,6 @@ fn game_dylib_path() -> Option<Path> {
         let file_name = entry.filename_str().unwrap();
 
         if file_name.contains("dutchman_game") && file_name.contains(".dll") {
-            println!("Game dylib path: {}", entry.display());
             return Some(os::make_absolute(entry).unwrap());
         }
     }
@@ -205,7 +204,8 @@ fn main() {
     }
 
     // TODO Stack memory is nice, but might want to box it if it gets too big.
-    let mut game_memory = [0u8, ..2048];
+    let mut game_memory = [0u8, ..4096];
+    // let mut game_memory = box [0u8, ..2048 * 1024];
 
     unsafe { load(&_glfw, &window, &mut game_memory[0]); }
 
