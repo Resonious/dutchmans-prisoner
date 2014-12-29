@@ -141,6 +141,7 @@ pub struct Game {
 
     pub crattle_tex: *mut Texture,
     pub crattle_frame_space: [Frame, ..10], // <- number of frames
+    pub crattle_texcoords_space: [Texcoords, ..10], // Perhaps we can remove frames
     pub crattle_vbo: GLuint,
     pub crattle_positions: [SpriteData, ..2],
 
@@ -223,8 +224,7 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
                 (width, height) => gl::Uniform2f(game.screen_size_uniform, width as f32, height as f32)
             }
         }
-        // NOTE this, among other things, uses a std::Vec, which obviously won't persist.
-        crattle_tex.generate_texcoords_buffer();
+        crattle_tex.generate_texcoords_buffer(&mut game.crattle_texcoords_space);
 
         game.cam_pos = Vector2::new(0.0, 0.0);
     }

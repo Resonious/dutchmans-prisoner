@@ -68,10 +68,9 @@ pub struct Texture {
     pub width: i32,
     pub height: i32,
     pub filename: &'static str,
-    // pub frames: Vec<Frame>,
     pub frame_space: *mut [Frame],
     pub frame_texcoords_size: i64,
-    pub texcoords_buffer: Vec<Texcoords>
+    pub texcoords_space: *mut [Texcoords]
 }
 
 impl Texture {
@@ -92,6 +91,16 @@ impl Texture {
     #[inline]
     pub fn frames(&self) -> &[Frame] {
         unsafe { transmute(self.frame_space) }
+    }
+
+    #[inline]
+    pub fn texcoords(&self) -> &[Texcoords] {
+        unsafe { transmute(self.texcoords_space) }
+    }
+
+    #[inline]
+    pub fn texcoords_mut(&mut self) -> &mut [Texcoords] {
+        unsafe { transmute(self.texcoords_space) }
     }
 
     #[inline]
@@ -126,19 +135,30 @@ impl Texture {
                 gl::Uniform2fv(
                     frames_uniform,
                     frames_len as GLint * 4,
-                    transmute(&self.texcoords_buffer[0])
+                    transmute(&(&*self.texcoords_space)[0])
                 );
             }
         }
     }
 
-    pub fn generate_texcoords_buffer(&mut self) {
+    fn put_texcoord(&mut self, index: uint, texcoord: Texcoords) {
+        self.texcoords_mut()[index] = texcoord;
+    }
+
+    pub fn generate_texcoords_buffer(&mut self, space: *mut [Texcoords]) {
         let frames_len = self.frames().len();
+        unsafe { assert_eq!(frames_len, (&*space).len()); }
         if frames_len == 0 { return; }
 
-        self.texcoords_buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
-            self.frame_at(i).texcoords.clone()
-        });
+        // self.texcoords_buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
+            // self.frame_at(i).texcoords.clone()
+        // });
+        self.texcoords_space = space;
+        for i in range(0u, frames_len) {
+            let texcoords = self.frame_at(i).texcoords.clone();
+            self.put_texcoord(i, texcoords);
+            // texcoords[i] = self.frame_at(i).texcoords.clone()
+        }
     }
 
     // Fill the given slice with frames of the given width and height.
@@ -297,9 +317,8 @@ pub fn load_texture(filename: &'static str) -> Texture {
         width: width,
         height: height,
         filename: filename,
-        // frames: vec![],
         frame_space: &mut [],
         frame_texcoords_size: 0,
-        texcoords_buffer: vec![]
+        texcoords_space: &mut []
     }
 }
