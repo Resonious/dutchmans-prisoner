@@ -10,7 +10,7 @@ use glfw::{Context, Action, Key};
 
 use render::shader;
 use render::texture;
-use render::texture::{Texture, Texcoords, TextureManager};
+use render::texture::{Texture, Texcoords, TextureManager, Frame};
 use render::sprite::*;
 use std::mem::{transmute, size_of, size_of_val};
 use gl::types::*;
@@ -119,6 +119,9 @@ static SQUARE_INDICES: [GLuint, ..6] = [
 pub struct Game {
     pub initialized: bool,
 
+    // NOTE Do whatever you want with this.
+    pub debug_flag: int,
+
     pub vao: GLuint,
     pub square_vbo: GLuint,
     pub square_ebo: GLuint,
@@ -137,10 +140,11 @@ pub struct Game {
     pub zero_zero_positions: [SpriteData, ..1],
 
     pub crattle_tex: *mut Texture,
+    pub crattle_frame_space: [Frame, ..10], // <- number of frames
     pub crattle_vbo: GLuint,
     pub crattle_positions: [SpriteData, ..2],
 
-    pub cam_pos: Vector2<GLfloat>
+    pub cam_pos: Vector2<GLfloat>,
 }
 
 #[no_mangle]
@@ -158,6 +162,8 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
     if !game.initialized {
         game.initialized = true;
 
+        game.debug_flag = 0;
+
         // === Generate textures and the like ===
         game.texture_manager = TextureManager::new();
 
@@ -171,7 +177,7 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 
         game.crattle_tex = game.texture_manager.load("tile-test.png");
         let mut crattle_tex = unsafe { &mut *game.crattle_tex };
-        crattle_tex.add_frames(10, 64, 64);
+        crattle_tex.add_frames(game.crattle_frame_space.as_mut_slice(), 64, 64);
         game.crattle_positions = [
             SpriteData {
                 position: Vector2::new(100.0, 100.0),
@@ -259,8 +265,8 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
                 },
 
             glfw::WindowEvent::Key(Key::B, _, Action::Release, _) => {
-                let frames = &crattle_tex.frames;
-                println!("Break time!");
+                let frames = crattle_tex.frames();
+                println!("third frame position of crattle tex is {}", frames[2].position);
             },
 
             glfw::WindowEvent::Size(width, height) => unsafe {
@@ -276,7 +282,7 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
     unsafe {
         gl::Uniform2f(game.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
 
-        gl::ClearColor(0.3, 0.3, 0.0, 1.0);
+        gl::ClearColor(0.1, 0.1, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
         // Draw zero-zero sign

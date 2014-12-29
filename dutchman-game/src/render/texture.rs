@@ -68,7 +68,8 @@ pub struct Texture {
     pub width: i32,
     pub height: i32,
     pub filename: &'static str,
-    pub frames: Vec<Frame>,
+    // pub frames: Vec<Frame>,
+    pub frame_space: *mut [Frame],
     pub frame_texcoords_size: i64,
     pub texcoords_buffer: Vec<Texcoords>
 }
@@ -81,6 +82,28 @@ impl Texture {
             gl::Uniform1i(sampler_uniform, 0);
             gl::Uniform2f(sprite_size_uniform, self.width as f32, self.height as f32);
         }
+    }
+
+    #[inline]
+    pub fn frames_mut(&mut self) -> &mut [Frame] {
+        unsafe { transmute(self.frame_space) }
+    }
+
+    #[inline]
+    pub fn frames(&self) -> &[Frame] {
+        unsafe { transmute(self.frame_space) }
+    }
+
+    #[inline]
+    pub fn frame_at_mut(&mut self, i: uint) -> &mut Frame {
+        let mut frames = self.frames();
+        unsafe { transmute(&frames[i]) }
+    }
+
+    #[inline]
+    pub fn frame_at(&self, i: uint) -> &Frame {
+        let frames = self.frames();
+        &frames[i]
     }
 
     // NOTE this expects generate_texcoords_buffer to have been called
@@ -97,7 +120,7 @@ impl Texture {
             gl::Uniform1i(sampler_uniform, 0);
             gl::Uniform2f(sprite_size_uniform, width as f32, height as f32);
 
-            let frames_len = self.frames.len();
+            let frames_len = self.frames().len();
 
             if frames_len > 0 {
                 gl::Uniform2fv(
@@ -110,51 +133,56 @@ impl Texture {
     }
 
     pub fn generate_texcoords_buffer(&mut self) {
-        let frames_len = self.frames.len();
+        let frames_len = self.frames().len();
         if frames_len == 0 { return; }
 
         self.texcoords_buffer = Vec::<Texcoords>::from_fn(frames_len, |i| {
-            self.frames[i].texcoords.clone()
+            self.frame_at(i).texcoords.clone()
         });
     }
 
-    // NOTE If you call this twice, and ask for smaller frame size on the
-    // second call, you are asking for trouble...
-    pub fn add_frames(&mut self, count: uint, uwidth: uint, uheight: uint) {
-        let frames_len = self.frames.len();
+    // Fill the given slice with frames of the given width and height.
+    pub fn add_frames(&mut self, space: *mut [Frame], uwidth: uint, uheight: uint) {
+        let count = unsafe { (*space).len() };
         let tex_width  = self.width as f32;
         let tex_height = self.height as f32;
         let width  = uwidth as f32;
         let height = uheight as f32;
 
-        let mut current_pos = match frames_len {
-            0 => Vector2::<f32>::new(0.0, tex_height - height),
-            _ => self.frames[frames_len - 1].position + Vector2::new(width, 0.0)
-        };
+        self.frame_space = space;
+        {
+            let mut frames = self.frames_mut();
 
-        self.frames.grow_fn(count, |_| {
-            if current_pos.x + width > tex_width {
-                current_pos.x = 0.0;
-                current_pos.y -= height;
+            let mut current_pos = Vector2::<f32>::new(0.0, tex_height - height);
+            // let mut current_pos = match frames_len {
+            //     0 => Vector2::<f32>::new(0.0, tex_height - height),
+            //     _ => self.frames[frames_len - 1].position + Vector2::new(width, 0.0)
+            // };
+
+            // self.frames.grow_fn(count, |_| {
+            for i in range(0u, count) {
+                if current_pos.x + width > tex_width {
+                    current_pos.x = 0.0;
+                    current_pos.y -= height;
+                }
+                if current_pos.y < 0.0 {
+                    panic!(
+                        "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
+                        count, width, height, tex_width, tex_height
+                    );
+                }
+
+                let mut frame = Frame {
+                    position:  current_pos,
+                    size:      Vector2::new(width, height),
+                    texcoords: unsafe { uninitialized() }
+                };
+                frame.generate_texcoords(tex_width, tex_height);
+                frames[i] = frame;
+
+                current_pos.x += width;
             }
-            if current_pos.y < 0.0 {
-                panic!(
-                    "Too many frames! Asked for {} {}x{} frames on a {}x{} texture.",
-                    count, width, height, tex_width, tex_height
-                );
-            }
-
-            let mut frame = Frame {
-                position:  current_pos,
-                size:      Vector2::new(width, height),
-                texcoords: unsafe { uninitialized() }
-            };
-            frame.generate_texcoords(tex_width, tex_height);
-
-            current_pos.x += width;
-
-            frame
-        });
+        }
 
         self.frame_texcoords_size += size_of::<Texcoords>() as i64 * count as i64;
     }
@@ -184,7 +212,7 @@ impl TextureManager {
     }
 
     // If the texture with the given file name is present, return
-    // the index of the texture.
+    // a pointer to the texture.
     pub fn load(&mut self, filename: &'static str) -> *mut Texture {
         let mut textures = &mut self.textures;
 
@@ -269,7 +297,8 @@ pub fn load_texture(filename: &'static str) -> Texture {
         width: width,
         height: height,
         filename: filename,
-        frames: vec![],
+        // frames: vec![],
+        frame_space: &mut [],
         frame_texcoords_size: 0,
         texcoords_buffer: vec![]
     }
