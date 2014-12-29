@@ -140,10 +140,14 @@ pub struct Game {
     pub zero_zero_positions: [SpriteData, ..1],
 
     pub tile_tex: *mut Texture,
-    pub tile_frame_space: [Frame, ..10], // <- number of frames
-    pub tile_texcoords_space: [Texcoords, ..10], // Perhaps we can remove frames
+    pub tile_frame_space: [Frame, ..10], // <- number of frames.
+    pub tile_texcoords_space: [Texcoords, ..10], // Perhaps we can remove frames.
     pub tile_vbo: GLuint,
     pub tile_positions: [SpriteData, ..10*10],
+
+    // Player uses tiles texture ...for now.
+    pub player_vbo: GLuint,
+    pub player_state: SpriteData,
 
     pub cam_pos: Vector2<GLfloat>,
 }
@@ -215,6 +219,11 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
             }
         }
 
+        game.player_state = SpriteData {
+            position: Vector2::new(256.0, 256.0),
+            frame: 1
+        };
+
 
         // === Generate global VAO ===
         unsafe {
@@ -231,7 +240,8 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 
             // === Generate (by hand) stuff on the screen ===
             gen_buffer!(game.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
-            gen_buffer!(game.tile_vbo, game.tile_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
+            gen_buffer!(game.tile_vbo, game.tile_positions, ARRAY_BUFFER, STATIC_DRAW);
+            gen_buffer!(game.player_vbo, [game.player_state], ARRAY_BUFFER, DYNAMIC_DRAW);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
@@ -269,26 +279,48 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
                 window.set_should_close(true)
             }
 
-            glfw::WindowEvent::Key(Key::Up, _, press, _) => 
+            glfw::WindowEvent::Key(Key::W, _, press, _) => 
                 if press != Action::Release {
                     game.cam_pos.y += 10.0;
                     // println!("Cam is at {}", cam_pos);
                 },
-            glfw::WindowEvent::Key(Key::Down, _, press, _) => 
+            glfw::WindowEvent::Key(Key::S, _, press, _) => 
                 if press != Action::Release {
                     game.cam_pos.y -= 10.0;
                     // println!("Cam is at {}", cam_pos);
                 },
-            glfw::WindowEvent::Key(Key::Right, _, press, _) => 
+            glfw::WindowEvent::Key(Key::D, _, press, _) => 
                 if press != Action::Release {
                     game.cam_pos.x += 10.0;
                     // println!("Cam is at {}", cam_pos);
                 },
-            glfw::WindowEvent::Key(Key::Left, _, press, _) => 
+            glfw::WindowEvent::Key(Key::A, _, press, _) => 
                 if press != Action::Release {
                     game.cam_pos.x -= 10.0;
                     // println!("Cam is at {}", cam_pos);
                 },
+
+            glfw::WindowEvent::Key(Key::Up, _, press, _) => 
+                if press != Action::Release {
+                    game.player_state.position.y += 10.0;
+                    // println!("Cam is at {}", cam_pos);
+                },
+            glfw::WindowEvent::Key(Key::Down, _, press, _) => 
+                if press != Action::Release {
+                    game.player_state.position.y -= 10.0;
+                    // println!("Cam is at {}", cam_pos);
+                },
+            glfw::WindowEvent::Key(Key::Right, _, press, _) => 
+                if press != Action::Release {
+                    game.player_state.position.x += 10.0;
+                    // println!("Cam is at {}", cam_pos);
+                },
+            glfw::WindowEvent::Key(Key::Left, _, press, _) => 
+                if press != Action::Release {
+                    game.player_state.position.x -= 10.0;
+                    // println!("Cam is at {}", cam_pos);
+                },
+
 
             glfw::WindowEvent::Key(Key::B, _, Action::Release, _) => {
                 println!("Game has {} tile positions", game.tile_positions.len());
@@ -304,6 +336,18 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
         }
     }
 
+    // TODO sometime around here, update the player position with subdata or memory
+    // mapping. (and make it controllable?)
+    // === Updating buffers ===
+    unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, game.player_vbo);
+        gl::BufferSubData(gl::ARRAY_BUFFER, 0,
+                          size_of::<SpriteData>() as i64,
+                          transmute(&game.player_state));
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+    }
+
+    // === Drawing ===
     unsafe {
         gl::Uniform2f(game.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
 
@@ -320,6 +364,13 @@ pub extern "C" fn update_and_render(game: &mut Game, glfw: &glfw::Glfw, window: 
         set_sprite_attribute(game.tile_vbo);
         gl::DrawElementsInstanced(
             gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.tile_positions.len() as i32
+        );
+
+        // Draw PLAYER?
+        // NOTE for now, player uses tile_tex (which is still set at this point)
+        set_sprite_attribute(game.player_vbo);
+        gl::DrawElementsInstanced(
+            gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 1
         );
 
         check_error!();

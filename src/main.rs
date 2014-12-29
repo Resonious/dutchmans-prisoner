@@ -212,6 +212,7 @@ fn main() {
     let (tx, rx) = channel();
     spawn(move || watch_for_updated_dll(&tx));
 
+    // TODO Implement actual framerate instead of burning up the CPU.
     while !window.should_close() {
         match rx.try_recv() {
             Ok((new_lib_path, new_lib, new_load, new_test_loop)) => {
