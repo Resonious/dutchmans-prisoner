@@ -24,9 +24,10 @@ use std::mem;
 use std::str;
 use std::io::timer::sleep;
 use std::time::duration::Duration;
+use std::num::Float;
 
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
-type TestLoopFn = extern "C" fn(&mut u8, &glfw::Glfw, &glfw::Window, &GlfwEvent);
+type TestLoopFn = extern "C" fn(&mut u8, &Duration, &glfw::Glfw, &glfw::Window, &GlfwEvent);
 type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8);
 
 static DYLIB_DIR: &'static str = "./dutchman-game";
@@ -54,6 +55,7 @@ fn game_dylib_path() -> Option<Path> {
             return Some(os::make_absolute(entry).unwrap());
         }
     }
+    println!("WARNING: Failed to find game dylib path!");
     return None;
 }
 
@@ -172,6 +174,14 @@ fn watch_for_updated_dll(tx: &Sender<(Path, DynamicLibrary, LoadFn, TestLoopFn)>
 fn watch_for_updated_dll(tx: Sender<(LoadFn, TestLoopFn)>) {
 }
 
+#[link(name = "Winmm")]
+extern "C" {
+    // NOTE needed for accurate frame delay on Windows only.
+    pub fn timeBeginPeriod(period: uint) -> uint;
+    pub fn timeEndPeriod(period: uint);
+}
+static TIMERR_NOCANDO: uint = 97;
+
 fn main() {
     // test_static();
 
@@ -212,28 +222,48 @@ fn main() {
     let (tx, rx) = channel();
     spawn(move || watch_for_updated_dll(&tx));
 
-    // TODO Implement actual framerate instead of burning up the CPU.
+    let target_frame_time = Duration::nanoseconds((1.0e9 / 60.0 as f64).floor() as i64);
+    // let delta_frame_time = target_frame_time + Duration::microseconds(400);
+    let mut delta = target_frame_time.clone();
+    let should_sleep = unsafe { timeBeginPeriod(1) != TIMERR_NOCANDO };
+
     while !window.should_close() {
-        match rx.try_recv() {
-            Ok((new_lib_path, new_lib, new_load, new_test_loop)) => {
-                lib       = new_lib;
-                load      = new_load;
-                test_loop = new_test_loop;
+        let time = Duration::span(|| {
+            match rx.try_recv() {
+                Ok((new_lib_path, new_lib, new_load, new_test_loop)) => {
+                    lib       = new_lib;
+                    load      = new_load;
+                    test_loop = new_test_loop;
 
-                loop {
-                    match fs::unlink(&current_dylib_path) {
-                        Err(e) => continue,
-                        _ => break
+                    loop {
+                        match fs::unlink(&current_dylib_path) {
+                            Err(e) => continue,
+                            _ => break
+                        }
                     }
-                }
-                current_dylib_path = new_lib_path;
+                    current_dylib_path = new_lib_path;
 
-                load(&_glfw, &window, &mut game_memory[0]);
-            },
-            _ => {}
-        }
+                    load(&_glfw, &window, &mut game_memory[0]);
+                },
+                _ => {}
+            }
 
-        test_loop(&mut game_memory[0], &glfw, &window, &event);
+            test_loop(&mut game_memory[0], &delta, &glfw, &window, &event);
+        });
+
+        if time > target_frame_time {
+            delta = time;
+        }// else {
+         //   delta = time + Duration::span(|| {
+         //       if should_sleep {
+         //           sleep(target_frame_time - time);
+         //       }
+         //   });
+        // }
+    }
+
+    if should_sleep {
+        unsafe { timeEndPeriod(1); }
     }
     println!("Hey, I compiled and ran!");
 }
