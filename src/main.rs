@@ -27,8 +27,8 @@ use std::time::duration::Duration;
 use std::num::Float;
 
 type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
-type TestLoopFn = extern "C" fn(&mut u8, &Duration, &glfw::Glfw, &glfw::Window, &GlfwEvent);
-type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8);
+type TestLoopFn = extern "C" fn(&mut u8, &mut u8, &Duration, &glfw::Glfw, &glfw::Window, &GlfwEvent);
+type LoadFn = extern "C" fn(&u8, &glfw::Window, &mut u8, &mut u8);
 
 static DYLIB_DIR: &'static str = "./dutchman-game";
 
@@ -214,10 +214,11 @@ fn main() {
     }
 
     // TODO Stack memory is nice, but might want to box it if it gets too big.
-    let mut game_memory = [0u8, ..4096];
+    let mut game_memory    = [0u8, ..4096];
+    let mut options_memory = [0u8, ..128];
     // let mut game_memory = box [0u8, ..2048 * 1024];
 
-    unsafe { load(&_glfw, &window, &mut game_memory[0]); }
+    unsafe { load(&_glfw, &window, &mut game_memory[0], &mut options_memory[0]); }
 
     let (tx, rx) = channel();
     spawn(move || watch_for_updated_dll(&tx));
@@ -243,12 +244,12 @@ fn main() {
                     }
                     current_dylib_path = new_lib_path;
 
-                    load(&_glfw, &window, &mut game_memory[0]);
+                    load(&_glfw, &window, &mut game_memory[0], &mut options_memory[0]);
                 },
                 _ => {}
             }
 
-            test_loop(&mut game_memory[0], &delta, &glfw, &window, &event);
+            test_loop(&mut game_memory[0], &mut options_memory[0], &delta, &glfw, &window, &event);
         });
 
         if time > target_frame_time {

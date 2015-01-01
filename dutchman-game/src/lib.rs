@@ -12,6 +12,7 @@ use render::shader;
 use render::texture;
 use render::texture::{Texture, Texcoords, TextureManager, Frame};
 use render::sprite::*;
+use controls::{Controls, Control};
 use std::mem::{transmute, size_of, size_of_val, zeroed};
 use gl::types::*;
 use libc::c_void;
@@ -21,6 +22,7 @@ use std::time::duration::Duration;
 
 pub mod render;
 pub mod asset;
+pub mod controls;
 
 pub type GlfwEvent = Receiver<(f64, glfw::WindowEvent)>;
 
@@ -117,6 +119,10 @@ static SQUARE_INDICES: [GLuint, ..6] = [
     0.0, 1.0
 */
 
+pub struct Options {
+    pub controls: Controls
+}
+
 pub struct Game {
     pub initialized: bool,
 
@@ -156,9 +162,12 @@ pub struct Game {
 }
 
 #[no_mangle]
-pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut Game) {
-    // TODO Kinda hacky. Maybe refactor so that all GL calls happen within
-    // the "platform" layer and we don't need to mess with glfw here.
+pub extern "C" fn load(glfw_data: *const u8,
+                       window:    &glfw::Window,
+                       game:      &mut Game,
+                       options:   &mut Options)
+{
+    // TODO Put OpenGL state into another separate struct.
     unsafe {
         println!("Loading up!");
         glfwInit();
@@ -169,6 +178,8 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 
     if !game.initialized {
         game.initialized = true;
+
+        options.controls = unsafe { zeroed() };
 
         unsafe {
             gl::Enable(gl::BLEND);
@@ -280,11 +291,12 @@ pub extern "C" fn load(glfw_data: *const u8, window: &glfw::Window, game: &mut G
 
 #[no_mangle]
 pub extern "C" fn update_and_render(
-        game:   &mut Game,
-        delta:  &Duration,
-        glfw:   &glfw::Glfw,
-        window: &glfw::Window,
-        event:  &GlfwEvent)
+        game:    &mut Game,
+        options: &mut Options,
+        delta:   &Duration,
+        glfw:    &glfw::Glfw,
+        window:  &glfw::Window,
+        event:   &GlfwEvent)
 {
     glfw.poll_events();
 
@@ -302,62 +314,38 @@ pub extern "C" fn update_and_render(
     let zero_zero_tex = unsafe { &*game.zero_zero_tex };
     let mut player_tex = unsafe { &mut *game.player_tex };
 
+    let mut controls = &mut options.controls;
+    for control in controls.iter_mut() {
+        control.check_just_down();
+    }
+
     for (_, event) in glfw::flush_messages(event) {
         match event {
             glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                 window.set_should_close(true)
             }
 
-            glfw::WindowEvent::Key(Key::W, _, press, _) => 
-                if press != Action::Release {
-                    game.cam_pos.y += 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::S, _, press, _) => 
-                if press != Action::Release {
-                    game.cam_pos.y -= 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::D, _, press, _) => 
-                if press != Action::Release {
-                    game.cam_pos.x += 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::A, _, press, _) => 
-                if press != Action::Release {
-                    game.cam_pos.x -= 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
+            glfw::WindowEvent::Key(key, _, action, _) => {
+                let mut control = match key {
+                    Key::W  => &mut controls.up,
+                    Key::Up => &mut controls.up,
 
-            glfw::WindowEvent::Key(Key::Up, _, press, _) => 
-                if press != Action::Release {
-                    game.player_state.position.y += 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::Down, _, press, _) => 
-                if press != Action::Release {
-                    game.player_state.position.y -= 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::Right, _, press, _) => 
-                if press != Action::Release {
-                    game.player_state.position.x += 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
-            glfw::WindowEvent::Key(Key::Left, _, press, _) => 
-                if press != Action::Release {
-                    game.player_state.position.x -= 10.0;
-                    // println!("Cam is at {}", cam_pos);
-                },
+                    Key::S    => &mut controls.down,
+                    Key::Down => &mut controls.down,
 
+                    Key::A    => &mut controls.left,
+                    Key::Left => &mut controls.left,
 
-            glfw::WindowEvent::Key(Key::B, _, Action::Release, _) => {
-                // println!("Game has {} tile positions", game.tile_positions.len());
-                // println!("Delta: {}", delta);
-                unsafe {
-                    gl::BlendFunc(gl::SRC_COLOR, gl::SRC_ALPHA);
-                }
-            },
+                    Key::D     => &mut controls.right,
+                    Key::Right => &mut controls.right,
+
+                    Key::B => &mut controls.debug,
+
+                    _ => break
+                };
+
+                control.process_input(action);
+            }
 
             glfw::WindowEvent::Size(width, height) => unsafe {
                 println!("screen is now {} x {}", width, height);
@@ -367,6 +355,28 @@ pub extern "C" fn update_and_render(
 
             _ => {}
         }
+    }
+
+    // === Reacting to input ===
+    let delta_sec = delta.num_microseconds().unwrap() as f32 / 1_000_000.0;
+    if controls.up.down {
+        game.cam_pos.y += 100.0 * delta_sec;
+    }
+    if controls.down.down {
+        game.cam_pos.y -= 100.0 * delta_sec;
+    }
+    if controls.left.down {
+        game.cam_pos.x -= 100.0 * delta_sec;
+    }
+    if controls.right.down {
+        game.cam_pos.x += 100.0 * delta_sec;
+    }
+
+    if controls.debug.just_down {
+        println!("Just down!");
+    }
+    if controls.debug.just_up {
+        println!("Just up!");
     }
 
     // === Updating buffers ===
