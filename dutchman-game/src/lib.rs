@@ -316,7 +316,7 @@ pub extern "C" fn update_and_render(
 
     let mut controls = &mut options.controls;
     for control in controls.iter_mut() {
-        control.check_just_down();
+        control.last_frame = control.this_frame;
     }
 
     for (_, event) in glfw::flush_messages(event) {
@@ -344,7 +344,11 @@ pub extern "C" fn update_and_render(
                     _ => break
                 };
 
-                control.process_input(action);
+                match action {
+                    Action::Press => control.this_frame = true,
+                    Action::Release => control.this_frame = false,
+                    _ => {}
+                }
             }
 
             glfw::WindowEvent::Size(width, height) => unsafe {
@@ -359,23 +363,23 @@ pub extern "C" fn update_and_render(
 
     // === Reacting to input ===
     let delta_sec = delta.num_microseconds().unwrap() as f32 / 1_000_000.0;
-    if controls.up.down {
+    if controls.up.down() {
         game.cam_pos.y += 100.0 * delta_sec;
     }
-    if controls.down.down {
+    if controls.down.down() {
         game.cam_pos.y -= 100.0 * delta_sec;
     }
-    if controls.left.down {
+    if controls.left.down() {
         game.cam_pos.x -= 100.0 * delta_sec;
     }
-    if controls.right.down {
+    if controls.right.down() {
         game.cam_pos.x += 100.0 * delta_sec;
     }
 
-    if controls.debug.just_down {
+    if controls.debug.just_down() {
         println!("Just down!");
     }
-    if controls.debug.just_up {
+    if controls.debug.just_up() {
         println!("Just up!");
     }
 
