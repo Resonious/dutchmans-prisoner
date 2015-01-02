@@ -9,6 +9,7 @@ use std::ptr;
 pub static ATTR_VERTEX_POS: u32 = 0;
 pub static ATTR_POSITION: u32 = 1;
 pub static ATTR_FRAME: u32 = 2;
+pub static ATTR_FLIPPED: u32 = 3;
 
 pub static FRAME_UNIFORM_MAX: i64 = 256;
 
@@ -20,6 +21,7 @@ pub static STANDARD_VERTEX: &'static str = "
         // Per instance:
         layout (location = 1) in vec2 position;       // in pixels
         layout (location = 2) in int frame;
+        layout (location = 3) in int flipped; // actually a bool
 
         uniform vec2[256] frames;
         uniform vec2 screen_size;
@@ -68,6 +70,9 @@ pub static STANDARD_VERTEX: &'static str = "
             else
                 texcoord = frames[frame * 4 + gl_VertexID];
             texcoord.y = 1 - texcoord.y;
+            if (flipped != 0) {
+                texcoord.x = 1 - texcoord.x;
+                }
         }
     ";
 

@@ -77,7 +77,7 @@ fn set_sprite_attribute(vbo: GLuint) {
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         let size_of_sprite = size_of::<SpriteData>() as GLint;
-        assert_eq!(size_of_sprite, 12);
+        assert_eq!(size_of_sprite, 16);
 
         // == Position ==
         gl::EnableVertexAttribArray(shader::ATTR_POSITION);
@@ -86,13 +86,23 @@ fn set_sprite_attribute(vbo: GLuint) {
             size_of_sprite, as_void!(0)
         );
         gl::VertexAttribDivisor(shader::ATTR_POSITION, 1);
-        let offset = 2 * size_of::<GLfloat>() as i64;
+        let mut offset = 2 * size_of::<GLfloat>() as i64;
         assert_eq!(offset, 8);
 
         // == Frame ==
         gl::EnableVertexAttribArray(shader::ATTR_FRAME);
         gl::VertexAttribIPointer(
             shader::ATTR_FRAME, 1, gl::INT,
+            size_of_sprite, as_void!(offset)
+        );
+        gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
+        offset += 1 * size_of::<GLint>() as i64;
+        assert_eq!(offset, 12);
+
+        // == Flipped ==
+        gl::EnableVertexAttribArray(shader::ATTR_FLIPPED);
+        gl::VertexAttribIPointer(
+            shader::ATTR_FLIPPED, 1, gl::INT,
             size_of_sprite, as_void!(offset)
         );
         gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
@@ -196,7 +206,8 @@ pub extern "C" fn load(glfw_data: *const u8,
         game.zero_zero_positions = [
             SpriteData {
                 position: Vector2::new(0.0, 0.0),
-                frame: -1
+                frame: -1,
+                flipped: false
             }
         ];
 
@@ -233,7 +244,8 @@ pub extern "C" fn load(glfw_data: *const u8,
             for (y, frame) in ys.iter().enumerate() {
                 game.tile_positions[count] = SpriteData {
                     position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0 + 128.0),
-                    frame: *frame as i32
+                    frame: *frame as i32,
+                    flipped: false
                 };
                 count += 1;
             }
@@ -244,7 +256,8 @@ pub extern "C" fn load(glfw_data: *const u8,
         player_tex.add_frames(game.player_frame_space.as_mut_slice(), 32, 32);
         game.player_state = SpriteData {
             position: Vector2::new(256.0, 256.0),
-            frame: 1
+            frame: 1,
+            flipped: true
         };
 
 
@@ -380,7 +393,7 @@ pub extern "C" fn update_and_render(
     }
 
     if controls.debug.just_down() {
-        println!("Just down!");
+        game.player_state.flipped = !game.player_state.flipped;
     }
     if controls.debug.just_up() {
         println!("Just up!");

@@ -13,7 +13,8 @@ use gl::types::*;
 #[deriving(Copy)]
 pub struct SpriteData {
     pub position: Vector2<GLfloat>,
-    pub frame: GLint
+    pub frame: GLint,
+    pub flipped: bool
 }
 
 pub struct Sprite {
