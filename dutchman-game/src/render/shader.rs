@@ -72,7 +72,7 @@ pub static STANDARD_VERTEX: &'static str = "
             texcoord.y = 1 - texcoord.y;
             if (flipped != 0) {
                 texcoord.x = 1 - texcoord.x;
-                }
+            }
         }
     ";
 

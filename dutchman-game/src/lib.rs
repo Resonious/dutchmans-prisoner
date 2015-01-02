@@ -133,12 +133,7 @@ pub struct Options {
     pub controls: Controls
 }
 
-pub struct Game {
-    pub initialized: bool,
-
-    // NOTE Do whatever you want with this.
-    pub debug_flag: int,
-
+pub struct GlData {
     pub vao: GLuint,
     pub square_vbo: GLuint,
     pub square_ebo: GLuint,
@@ -151,34 +146,43 @@ pub struct Game {
     pub tex_uniform:         GLint,
     pub frames_uniform:      GLint,
 
-    pub texture_manager: TextureManager,
-
-    pub zero_zero_tex: *mut Texture,
+    pub zero_zero_tex: Texture,
     pub zero_zero_vbo: GLuint,
+
+    pub tile_tex: Texture,
+    pub tile_texcoords: [Texcoords, ..14],
+    pub tile_vbo: GLuint,
+
+    pub player_tex: Texture,
+    pub player_texcoords: [Texcoords, ..3],
+    pub player_vbo: GLuint,
+}
+
+pub struct Game {
+    pub initialized: bool,
+
+    // NOTE Do whatever you want with this.
+    pub debug_flag: int,
+
     pub zero_zero_positions: [SpriteData, ..1],
 
-    pub tile_tex: *mut Texture,
     pub tile_frame_space: [Frame, ..14], // <- number of frames.
-    pub tile_texcoords_space: [Texcoords, ..14], // Perhaps we can remove frames.
-    pub tile_vbo: GLuint,
     pub tile_positions: [SpriteData, ..10*10],
 
-    pub player_tex: *mut Texture,
     pub player_frame_space: [Frame, ..3],
-    pub player_texcoords_space: [Texcoords, ..3],
-    pub player_vbo: GLuint,
     pub player_state: SpriteData,
 
     pub cam_pos: Vector2<GLfloat>,
 }
 
 #[no_mangle]
-pub extern "C" fn load(glfw_data: *const u8,
+pub extern "C" fn load(fresh_load: bool,
+                       glfw_data: *const u8,
                        window:    &glfw::Window,
                        game:      &mut Game,
-                       options:   &mut Options)
+                       options:   &mut Options,
+                       gldata:   &mut GlData)
 {
-    // TODO Put OpenGL state into another separate struct.
     unsafe {
         println!("Loading up!");
         glfwInit();
@@ -187,22 +191,12 @@ pub extern "C" fn load(glfw_data: *const u8,
         gl::load_with(|s| window.get_proc_address(s));
     }
 
+    // === Initialize game state ===
     if !game.initialized {
         game.initialized = true;
 
-        options.controls = unsafe { zeroed() };
+        game.cam_pos = Vector2::new(0.0, 0.0);
 
-        unsafe {
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-        }
-
-        game.debug_flag = 0;
-
-        // === Generate textures and the like ===
-        game.texture_manager = TextureManager::new();
-
-        game.zero_zero_tex = game.texture_manager.load("zero-zero.png");
         game.zero_zero_positions = [
             SpriteData {
                 position: Vector2::new(0.0, 0.0),
@@ -211,97 +205,99 @@ pub extern "C" fn load(glfw_data: *const u8,
             }
         ];
 
-        game.tile_tex = game.texture_manager.load("wood-tiles.png");
-        let mut tile_tex = unsafe { &mut *game.tile_tex };
-        tile_tex.add_frames(game.tile_frame_space.as_mut_slice(), 32, 32);
-        // game.tile_positions = [
-        //     SpriteData {
-        //         position: Vector2::new(100.0, 100.0),
-        //         frame: 2
-        //     },
-        //     SpriteData {
-        //         position: Vector2::new(-200.0, -200.0),
-        //         frame: 0
-        //     }
-        // ];
-         let tilemap: [[uint, ..10], ..10] = [
-            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 2, 2, 2, 2, 2, 2, 2, 2, 8],
-            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
-        ];
-
-        // NOTE Slow but works
-        game.tile_positions = unsafe { zeroed() };
-        let mut count = 0u;
-        for (x, ys) in tilemap.iter().enumerate() {
-            for (y, frame) in ys.iter().enumerate() {
-                game.tile_positions[count] = SpriteData {
-                    position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0 + 128.0),
-                    frame: *frame as i32,
-                    flipped: false
-                };
-                count += 1;
-            }
-        }
-
-        game.player_tex = game.texture_manager.load("dutchman.png");
-        let mut player_tex = unsafe { &mut *game.player_tex };
-        player_tex.add_frames(game.player_frame_space.as_mut_slice(), 32, 32);
         game.player_state = SpriteData {
             position: Vector2::new(256.0, 256.0),
             frame: 1,
             flipped: true
         };
 
+        let tilemap: [[i32, ..10], ..10] = [
+            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
+            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+        ];
+
+        // NOTE Slow but works
+        let mut count = 0u;
+        for (x, ys) in tilemap.iter().enumerate() {
+            for (y, frame) in ys.iter().enumerate() {
+                game.tile_positions[count] = SpriteData {
+                    position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0 + 128.0),
+                    frame: *frame,
+                    flipped: false
+                };
+                count += 1;
+            }
+        }
+
+        game.debug_flag = 0;
+    }
+
+    // === Initialize GL data if necessary ===
+        options.controls = unsafe { zeroed() };
+    if fresh_load {
+
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        // === Generate textures and the like ===
+        gldata.zero_zero_tex = texture::load_texture("zero-zero.png");
+
+        gldata.tile_tex = texture::load_texture("wood-tiles.png");
+        gldata.tile_tex.add_frames(game.tile_frame_space.as_mut_slice(), 32, 32);
+
+        gldata.player_tex = texture::load_texture("dutchman.png");
+        gldata.player_tex.add_frames(game.player_frame_space.as_mut_slice(), 32, 32);
 
         // === Generate global VAO ===
         unsafe {
-            gl::GenVertexArrays(1, &mut game.vao);
-            gl::BindVertexArray(game.vao);
+            gl::GenVertexArrays(1, &mut gldata.vao);
+            gl::BindVertexArray(gldata.vao);
 
             // === Generate and populate global rectangle buffers ===
-            gen_buffer!(game.square_vbo, SQUARE_VERTICES, ARRAY_BUFFER, STATIC_DRAW);
-            gen_buffer!(game.square_ebo, SQUARE_INDICES, ELEMENT_ARRAY_BUFFER, STATIC_DRAW);
-            gl::BindBuffer(gl::ARRAY_BUFFER, game.square_vbo);
+            gen_buffer!(gldata.square_vbo, SQUARE_VERTICES, ARRAY_BUFFER, STATIC_DRAW);
+            gen_buffer!(gldata.square_ebo, SQUARE_INDICES, ELEMENT_ARRAY_BUFFER, STATIC_DRAW);
+            gl::BindBuffer(gl::ARRAY_BUFFER, gldata.square_vbo);
             gl::EnableVertexAttribArray(shader::ATTR_VERTEX_POS);
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE as GLboolean,
                                     stride!(2), as_void!(0));
 
             // === Generate (by hand) stuff on the screen ===
-            gen_buffer!(game.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
-            gen_buffer!(game.tile_vbo, game.tile_positions, ARRAY_BUFFER, STATIC_DRAW);
-            gen_buffer!(game.player_vbo, [game.player_state], ARRAY_BUFFER, DYNAMIC_DRAW);
+            gen_buffer!(gldata.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
+            gen_buffer!(gldata.tile_vbo, game.tile_positions, ARRAY_BUFFER, STATIC_DRAW);
+            gen_buffer!(gldata.player_vbo, [game.player_state], ARRAY_BUFFER, DYNAMIC_DRAW);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
         // === Generate shaders ===
-        game.shader_prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
-        unsafe { gl::UseProgram(game.shader_prog) }
-        game.cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(game.shader_prog, c)) };
-        game.scale_uniform       = unsafe {       "scale".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
-        game.sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
-        game.screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
-        game.tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(game.shader_prog, t)) };
-        game.frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(game.shader_prog, f)) };
+        gldata.shader_prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
+        unsafe { gl::UseProgram(gldata.shader_prog) }
+        gldata.cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(gldata.shader_prog, c)) };
+        gldata.scale_uniform       = unsafe {       "scale".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
+        gldata.sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
+        gldata.screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
+        gldata.tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(gldata.shader_prog, t)) };
+        gldata.frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(gldata.shader_prog, f)) };
         unsafe {
-            gl::Uniform2f(game.cam_pos_uniform, 0f32, 0f32);
-            gl::Uniform1f(game.scale_uniform, 2.0);
+            gl::Uniform2f(gldata.cam_pos_uniform, 0f32, 0f32);
+            gl::Uniform1f(gldata.scale_uniform, 2.0);
             match window.get_size() {
-                (width, height) => gl::Uniform2f(game.screen_size_uniform, width as f32, height as f32)
+                (width, height) => gl::Uniform2f(gldata.screen_size_uniform, width as f32, height as f32)
             }
         }
-        tile_tex.generate_texcoords_buffer(&mut game.tile_texcoords_space);
-        player_tex.generate_texcoords_buffer(&mut game.player_texcoords_space);
 
-        game.cam_pos = Vector2::new(0.0, 0.0);
+        gldata.player_tex.generate_texcoords_buffer(&mut gldata.player_texcoords);
+        gldata.tile_tex.generate_texcoords_buffer(&mut gldata.tile_texcoords);
     }
 }
 
@@ -309,6 +305,7 @@ pub extern "C" fn load(glfw_data: *const u8,
 pub extern "C" fn update_and_render(
         game:    &mut Game,
         options: &mut Options,
+        gl_data: &mut GlData,
         delta:   &Duration,
         glfw:    &glfw::Glfw,
         window:  &glfw::Window,
@@ -326,9 +323,9 @@ pub extern "C" fn update_and_render(
         game.debug_flag = 0;
     }
 
-    let mut tile_tex  = unsafe { &mut *game.tile_tex };
-    let zero_zero_tex = unsafe { &*game.zero_zero_tex };
-    let mut player_tex = unsafe { &mut *game.player_tex };
+    let mut tile_tex  = &mut gl_data.tile_tex;
+    let zero_zero_tex = &gl_data.zero_zero_tex;
+    let mut player_tex = &mut gl_data.player_tex;
 
     let mut controls = &mut options.controls;
     for control in controls.iter_mut() {
@@ -342,7 +339,7 @@ pub extern "C" fn update_and_render(
             }
 
             glfw::WindowEvent::Key(key, _, action, _) => {
-                let mut control = match key {
+                let control = match key {
                     Key::W  => &mut controls.up,
                     Key::Up => &mut controls.up,
 
@@ -370,7 +367,7 @@ pub extern "C" fn update_and_render(
             glfw::WindowEvent::Size(width, height) => unsafe {
                 println!("screen is now {} x {}", width, height);
                 gl::Viewport(0, 0, width, height);
-                gl::Uniform2f(game.screen_size_uniform, width as f32, height as f32);
+                gl::Uniform2f(gl_data.screen_size_uniform, width as f32, height as f32);
             },
 
             _ => {}
@@ -401,7 +398,7 @@ pub extern "C" fn update_and_render(
 
     // === Updating buffers ===
     unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, game.player_vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, gl_data.player_vbo);
         gl::BufferSubData(gl::ARRAY_BUFFER, 0,
                           size_of::<SpriteData>() as i64,
                           transmute(&game.player_state));
@@ -410,26 +407,26 @@ pub extern "C" fn update_and_render(
 
     // === Drawing ===
     unsafe {
-        gl::Uniform2f(game.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
+        gl::Uniform2f(gl_data.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
 
         gl::ClearColor(0.1, 0.1, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
         // Draw zero-zero sign
         let zero_zero_len = game.zero_zero_positions.len();
-        zero_zero_tex.set_full(game.tex_uniform, game.sprite_size_uniform);
-        set_sprite_attribute(game.zero_zero_vbo);
+        zero_zero_tex.set_full(gl_data.tex_uniform, gl_data.sprite_size_uniform);
+        set_sprite_attribute(gl_data.zero_zero_vbo);
         gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), zero_zero_len as i32);
         // Draw tile!!!
-        tile_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 32.0, 32.0);
-        set_sprite_attribute(game.tile_vbo);
+        tile_tex.set(gl_data.tex_uniform, gl_data.sprite_size_uniform, gl_data.frames_uniform, 32.0, 32.0);
+        set_sprite_attribute(gl_data.tile_vbo);
         gl::DrawElementsInstanced(
             gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.tile_positions.len() as i32
         );
 
         // Draw PLAYER
-        player_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 32.0, 32.0);
-        set_sprite_attribute(game.player_vbo);
+        player_tex.set(gl_data.tex_uniform, gl_data.sprite_size_uniform, gl_data.frames_uniform, 32.0, 32.0);
+        set_sprite_attribute(gl_data.player_vbo);
         gl::DrawElementsInstanced(
             gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 1
         );

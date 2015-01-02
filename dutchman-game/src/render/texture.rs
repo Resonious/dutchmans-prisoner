@@ -147,7 +147,7 @@ impl Texture {
 
     pub fn generate_texcoords_buffer(&mut self, space: *mut [Texcoords]) {
         let frames_len = self.frames().len();
-        unsafe { assert_eq!(frames_len, (&*space).len()); }
+        unsafe { assert_eq!(frames_len, (*space).len()); }
         if frames_len == 0 { return; }
 
         self.texcoords_space = space;
