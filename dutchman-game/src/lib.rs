@@ -135,6 +135,7 @@ pub struct Game {
 
     pub shader_prog:         GLuint,
     pub cam_pos_uniform:     GLint,
+    pub scale_uniform:       GLint,
     pub sprite_size_uniform: GLint,
     pub screen_size_uniform: GLint,
     pub tex_uniform:         GLint,
@@ -153,8 +154,8 @@ pub struct Game {
     pub tile_positions: [SpriteData, ..10*10],
 
     pub player_tex: *mut Texture,
-    pub player_frame_space: [Frame, ..7],
-    pub player_texcoords_space: [Texcoords, ..7],
+    pub player_frame_space: [Frame, ..3],
+    pub player_texcoords_space: [Texcoords, ..3],
     pub player_vbo: GLuint,
     pub player_state: SpriteData,
 
@@ -238,9 +239,9 @@ pub extern "C" fn load(glfw_data: *const u8,
             }
         }
 
-        game.player_tex = game.texture_manager.load("shitty-player.png");
+        game.player_tex = game.texture_manager.load("dutchman.png");
         let mut player_tex = unsafe { &mut *game.player_tex };
-        player_tex.add_frames(game.player_frame_space.as_mut_slice(), 40, 50);
+        player_tex.add_frames(game.player_frame_space.as_mut_slice(), 32, 32);
         game.player_state = SpriteData {
             position: Vector2::new(256.0, 256.0),
             frame: 1
@@ -272,12 +273,14 @@ pub extern "C" fn load(glfw_data: *const u8,
         game.shader_prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
         unsafe { gl::UseProgram(game.shader_prog) }
         game.cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(game.shader_prog, c)) };
+        game.scale_uniform       = unsafe {       "scale".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
         game.sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
         game.screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(game.shader_prog, s)) };
         game.tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(game.shader_prog, t)) };
         game.frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(game.shader_prog, f)) };
         unsafe {
             gl::Uniform2f(game.cam_pos_uniform, 0f32, 0f32);
+            gl::Uniform1f(game.scale_uniform, 2.0);
             match window.get_size() {
                 (width, height) => gl::Uniform2f(game.screen_size_uniform, width as f32, height as f32)
             }
@@ -304,7 +307,7 @@ pub extern "C" fn update_and_render(
     game.debug_flag += delta.num_milliseconds() as int;
     if game.debug_flag >= 1000 {
         game.player_state.frame = match game.player_state.frame {
-            6 => 0,
+            2 => 0,
             _ => game.player_state.frame + 1
         };
         game.debug_flag = 0;
@@ -411,8 +414,8 @@ pub extern "C" fn update_and_render(
             gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.tile_positions.len() as i32
         );
 
-        // Draw PLAYER?
-        player_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 40.0, 50.0);
+        // Draw PLAYER
+        player_tex.set(game.tex_uniform, game.sprite_size_uniform, game.frames_uniform, 32.0, 32.0);
         set_sprite_attribute(game.player_vbo);
         gl::DrawElementsInstanced(
             gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 1

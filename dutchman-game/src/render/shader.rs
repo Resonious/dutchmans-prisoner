@@ -25,6 +25,7 @@ pub static STANDARD_VERTEX: &'static str = "
         uniform vec2 screen_size;
         uniform vec2 cam_pos;     // in pixels
         uniform vec2 sprite_size; // in pixels
+        uniform float scale;
 
         out vec2 texcoord;
 
@@ -58,7 +59,7 @@ pub static STANDARD_VERTEX: &'static str = "
         {
             vec2 pixel_screen_pos = (position - cam_pos) * 2;
             gl_Position = vec4(
-                vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos),
+                (vertex_pos * from_pixel(sprite_size) + from_pixel(pixel_screen_pos)) * scale,
                 0.0f, 1.0f
             );
 
