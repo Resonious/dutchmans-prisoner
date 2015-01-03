@@ -20,6 +20,7 @@ use std::ptr;
 use cgmath::*;
 use std::time::duration::Duration;
 use std::num::Float;
+use std::slice;
 
 pub mod render;
 pub mod asset;
@@ -168,13 +169,16 @@ pub struct Game {
     pub zero_zero_positions: [SpriteData, ..1],
 
     pub tile_frame_space: [Frame, ..14], // <- number of frames.
-    pub tile_positions: [SpriteData, ..10*10],
+    pub tilemap_position: Vector2<GLfloat>,
+    pub tilemap: [[i32, ..10], ..10],
+    // pub tile_positions: [SpriteData, ..10*10],
 
     pub player_frame_space: [Frame, ..3],
     pub player_state: SpriteData,
 
     pub cam_pos: Vector2<GLfloat>,
 }
+
 
 #[no_mangle]
 pub extern "C" fn load(fresh_load: bool,
@@ -202,7 +206,7 @@ pub extern "C" fn load(fresh_load: bool,
             SpriteData {
                 position: Vector2::new(0.0, 0.0),
                 frame: -1,
-                flipped: true as GLint
+                flipped: false as GLint
             }
         ];
 
@@ -212,7 +216,9 @@ pub extern "C" fn load(fresh_load: bool,
             flipped: true as GLint
         };
 
-        let tilemap: [[i32, ..10], ..10] = [
+        game.tilemap_position.x = 20.0;
+        game.tilemap_position.y = 128.0;
+        game.tilemap = [
             [9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
             [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
             [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
@@ -226,17 +232,17 @@ pub extern "C" fn load(fresh_load: bool,
         ];
 
         // NOTE Slow but works
-        let mut count = 0u;
-        for (y, xs) in tilemap.iter().enumerate() {
-            for (x, frame) in xs.iter().enumerate() {
-                game.tile_positions[count] = SpriteData {
-                    position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0 + 128.0),
-                    frame: *frame,
-                    flipped: false as GLint
-                };
-                count += 1;
-            }
-        }
+        // let mut count = 0u;
+        // for (y, xs) in game.tilemap.iter().enumerate() {
+        //     for (x, frame) in xs.iter().enumerate() {
+        //         game.tile_positions[count] = SpriteData {
+        //             position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0) + game.tilemap_position,
+        //             frame: *frame,
+        //             flipped: false as GLint
+        //         };
+        //         count += 1;
+        //     }
+        // }
 
         game.debug_flag = 0;
     }
@@ -275,8 +281,33 @@ pub extern "C" fn load(fresh_load: bool,
 
             // === Generate (by hand) stuff on the screen ===
             gen_buffer!(gldata.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
-            gen_buffer!(gldata.tile_vbo, game.tile_positions, ARRAY_BUFFER, STATIC_DRAW);
             gen_buffer!(gldata.player_vbo, [game.player_state], ARRAY_BUFFER, DYNAMIC_DRAW);
+            // gen_buffer!(gldata.tile_vbo, std::ptr::null(), ARRAY_BUFFER, STATIC_DRAW);
+            gl::GenBuffers(1, &mut gldata.tile_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, gldata.tile_vbo);
+            gl::BufferData(gl::ARRAY_BUFFER,
+                (10 * 10) * size_of::<SpriteData>() as GLsizeiptr,
+                std::ptr::null(),
+                gl::DYNAMIC_DRAW
+            );
+
+            let mut tile_buf = gl::MapBuffer(gl::ARRAY_BUFFER, gl::WRITE_ONLY);
+            let mut tile_sprites = slice::from_raw_mut_buf::<SpriteData>(
+                transmute(&tile_buf),
+                10 * 10
+            );
+            let mut count = 0u;
+            for (y, xs) in game.tilemap.iter().enumerate() {
+                for (x, frame) in xs.iter().enumerate() {
+                    tile_sprites[count] = SpriteData {
+                        position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0) + game.tilemap_position,
+                        frame: *frame,
+                        flipped: false as GLint
+                    };
+                    count += 1;
+                }
+            }
+            gl::UnmapBuffer(gl::ARRAY_BUFFER);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
@@ -446,7 +477,8 @@ pub extern "C" fn update_and_render(
     }
 
     if controls.debug.just_down() {
-        game.player_state.flipped = !game.player_state.flipped;
+        // game.player_state.flipped = !game.player_state.flipped;
+        game.player_state.position = Vector2::new(0.0, 0.0);
     }
     if controls.debug.just_up() {
         println!("Just up!");
@@ -463,11 +495,17 @@ pub extern "C" fn update_and_render(
     );
 
     // === Updating buffers ===
+    // Player
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, gl_data.player_vbo);
         gl::BufferSubData(gl::ARRAY_BUFFER, 0,
                           size_of::<SpriteData>() as i64,
                           transmute(&game.player_state));
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+    }
+    // Tilemap
+    unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, gl_data.tile_vbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
@@ -487,7 +525,7 @@ pub extern "C" fn update_and_render(
         tile_tex.set(gl_data.tex_uniform, gl_data.sprite_size_uniform, gl_data.frames_uniform, 32.0, 32.0);
         set_sprite_attribute(gl_data.tile_vbo);
         gl::DrawElementsInstanced(
-            gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), game.tile_positions.len() as i32
+            gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), 10 * 10
         );
 
         // Draw PLAYER
