@@ -14,7 +14,7 @@ use gl::types::*;
 pub struct SpriteData {
     pub position: Vector2<GLfloat>,
     pub frame: GLint,
-    pub flipped: bool
+    pub flipped: GLint
 }
 
 pub struct Sprite {
@@ -23,11 +23,12 @@ pub struct Sprite {
 }
 
 impl Sprite {
+    // TODO THIS IS NOT EVEN USED. SPRITE IS NOT EVEN USED.
     fn set(&self) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             let size_of_sprite = size_of::<SpriteData>() as GLint;
-            assert_eq!(size_of_sprite, 12);
+            assert_eq!(size_of_sprite, 16);
 
             // == Position ==
             gl::EnableVertexAttribArray(shader::ATTR_POSITION);

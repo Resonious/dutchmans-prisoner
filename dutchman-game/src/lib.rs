@@ -105,7 +105,7 @@ fn set_sprite_attribute(vbo: GLuint) {
             shader::ATTR_FLIPPED, 1, gl::INT,
             size_of_sprite, as_void!(offset)
         );
-        gl::VertexAttribDivisor(shader::ATTR_FRAME, 1);
+        gl::VertexAttribDivisor(shader::ATTR_FLIPPED, 1);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
@@ -201,37 +201,37 @@ pub extern "C" fn load(fresh_load: bool,
             SpriteData {
                 position: Vector2::new(0.0, 0.0),
                 frame: -1,
-                flipped: false
+                flipped: true as GLint
             }
         ];
 
         game.player_state = SpriteData {
             position: Vector2::new(256.0, 256.0),
             frame: 1,
-            flipped: true
+            flipped: true as GLint
         };
 
         let tilemap: [[i32, ..10], ..10] = [
-            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 5, 5, 5, 5, 5, 5, 5, 5, 8],
-            [8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+            [9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 11, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 11, 2, 2, 9],
+            [9, 2, 2, 2, 2, 2, 2, 2, 2, 9],
+            [9, 8, 8, 8, 7, 8, 8, 8, 8, 9]
         ];
 
         // NOTE Slow but works
         let mut count = 0u;
-        for (x, ys) in tilemap.iter().enumerate() {
-            for (y, frame) in ys.iter().enumerate() {
+        for (y, xs) in tilemap.iter().enumerate() {
+            for (x, frame) in xs.iter().enumerate() {
                 game.tile_positions[count] = SpriteData {
                     position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0 + 128.0),
                     frame: *frame,
-                    flipped: false
+                    flipped: false as GLint
                 };
                 count += 1;
             }
@@ -241,8 +241,9 @@ pub extern "C" fn load(fresh_load: bool,
     }
 
     // === Initialize GL data if necessary ===
-        options.controls = unsafe { zeroed() };
     if fresh_load {
+        // TODO load options from a file
+        options.controls = unsafe { zeroed() };
 
         unsafe {
             gl::Enable(gl::BLEND);
@@ -280,25 +281,52 @@ pub extern "C" fn load(fresh_load: bool,
         }
 
         // === Generate shaders ===
-        gldata.shader_prog = shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT);
-        unsafe { gl::UseProgram(gldata.shader_prog) }
-        gldata.cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(gldata.shader_prog, c)) };
-        gldata.scale_uniform       = unsafe {       "scale".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
-        gldata.sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
-        gldata.screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(gldata.shader_prog, s)) };
-        gldata.tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(gldata.shader_prog, t)) };
-        gldata.frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(gldata.shader_prog, f)) };
-        unsafe {
-            gl::Uniform2f(gldata.cam_pos_uniform, 0f32, 0f32);
-            gl::Uniform1f(gldata.scale_uniform, 2.0);
-            match window.get_size() {
-                (width, height) => gl::Uniform2f(gldata.screen_size_uniform, width as f32, height as f32)
-            }
+        if !compile_shaders(gldata, game, window) {
+            panic!("Failed to compile or link shaders.");
         }
-
         gldata.player_tex.generate_texcoords_buffer(&mut gldata.player_texcoords);
         gldata.tile_tex.generate_texcoords_buffer(&mut gldata.tile_texcoords);
     }
+    // if NOT fresh_load:
+    else {
+        if !compile_shaders(gldata, game, window) {
+            println!("ERROR COMPILING SHADERS. Shaders not reloaded.");
+        }
+    }
+}
+
+fn compile_shaders(gl_data: &mut GlData, game: &Game, window: &glfw::Window) -> bool {
+    let existing_program = unsafe {
+        if gl::IsProgram(gl_data.shader_prog) == gl::TRUE {
+            Some(gl_data.shader_prog)
+        } else { None }
+    };
+
+    gl_data.shader_prog = match shader::create_program(shader::STANDARD_VERTEX, shader::STANDARD_FRAGMENT) {
+        Some(program) => program,
+        None          => return false
+    };
+    unsafe { gl::UseProgram(gl_data.shader_prog) }
+    gl_data.cam_pos_uniform     = unsafe {     "cam_pos".with_c_str(|c| gl::GetUniformLocation(gl_data.shader_prog, c)) };
+    gl_data.scale_uniform       = unsafe {       "scale".with_c_str(|s| gl::GetUniformLocation(gl_data.shader_prog, s)) };
+    gl_data.sprite_size_uniform = unsafe { "sprite_size".with_c_str(|s| gl::GetUniformLocation(gl_data.shader_prog, s)) };
+    gl_data.screen_size_uniform = unsafe { "screen_size".with_c_str(|s| gl::GetUniformLocation(gl_data.shader_prog, s)) };
+    gl_data.tex_uniform         = unsafe {         "tex".with_c_str(|t| gl::GetUniformLocation(gl_data.shader_prog, t)) };
+    gl_data.frames_uniform      = unsafe {      "frames".with_c_str(|f| gl::GetUniformLocation(gl_data.shader_prog, f)) };
+    unsafe {
+        gl::Uniform2f(gl_data.cam_pos_uniform, game.cam_pos.x, game.cam_pos.y);
+        gl::Uniform1f(gl_data.scale_uniform, 2.0);
+        match window.get_size() {
+            (width, height) => gl::Uniform2f(gl_data.screen_size_uniform, width as f32, height as f32)
+        }
+    }
+
+    match existing_program {
+        Some(program) => unsafe { gl::DeleteProgram(program) },
+        _ => {}
+    }
+
+    true
 }
 
 #[no_mangle]

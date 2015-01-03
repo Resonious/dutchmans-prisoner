@@ -31,6 +31,8 @@ pub static STANDARD_VERTEX: &'static str = "
 
         out vec2 texcoord;
 
+        int call_index = 0;
+
         vec2 from_pixel(vec2 pos)
         {
             return pos / screen_size;
@@ -46,6 +48,7 @@ pub static STANDARD_VERTEX: &'static str = "
             else { return vec2(2.2, 2.2); }
         }
 
+        // For testing purposes:
         vec2 brute_force_half_texcoord(int id)
         {
             if      (id == 0) { return vec2(0.375, 1); }
@@ -56,6 +59,14 @@ pub static STANDARD_VERTEX: &'static str = "
             else { return vec2(2.2, 2.2); }
         }
 
+        int flipped_vertex_id() {
+            if      (gl_VertexID == 0) return 3;
+            else if (gl_VertexID == 1) return 2;
+            else if (gl_VertexID == 2) return 1;
+            else if (gl_VertexID == 3) return 0;
+            // Should not happen:
+            else return 0;
+        }
 
         void main()
         {
@@ -65,14 +76,16 @@ pub static STANDARD_VERTEX: &'static str = "
                 0.0f, 1.0f
             );
 
+            int index = flipped != 0 ? flipped_vertex_id() : gl_VertexID;
+
             if (frame == -1)
-                texcoord = brute_force_texcoord(gl_VertexID);
+                texcoord = brute_force_texcoord(index);
             else
-                texcoord = frames[frame * 4 + gl_VertexID];
+                texcoord = frames[frame * 4 + index];
             texcoord.y = 1 - texcoord.y;
-            if (flipped != 0) {
-                texcoord.x = 1 - texcoord.x;
-            }
+
+            call_index += 1;
+            if (call_index >= 6) call_index = 0;
         }
     ";
 
@@ -91,7 +104,7 @@ pub static STANDARD_FRAGMENT: &'static str = "
     ";
 
 macro_rules! check_log(
-    ($typ:expr $get_iv:ident | $get_log:ident $val:ident $status:ident) => (
+    ($typ:expr $get_iv:ident | $get_log:ident $val:ident $status:ident $on_error:ident) => (
         unsafe {
             let mut status = 0;
             gl::$get_iv($val, gl::$status, &mut status);
@@ -102,9 +115,11 @@ macro_rules! check_log(
                 let mut buf = Vec::from_elem(len as uint - 1, 0u8);
                 gl::$get_log($val, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
                 
-                panic!("{} ERROR: {}", $typ, String::from_utf8(buf));
+                $on_error!("{} ERROR: {}", $typ, String::from_utf8(buf));
+                false
             } else {
                 println!("I THINK THE {} COMPILED", $typ);
+                true
             }
         }
     )
@@ -123,18 +138,29 @@ macro_rules! make_shader(
     )
 );
 
-pub fn create_program(vert: &str, frag: &str) -> GLuint {
+pub fn create_program(vert: &str, frag: &str) -> Option<GLuint> {
     let vert_id = make_shader!(vert: VERTEX_SHADER);
-    check_log!("VERTEX SHADER"
+    let vert_result = check_log!("VERTEX SHADER"
         GetShaderiv | GetShaderInfoLog
         vert_id COMPILE_STATUS
+        println
     );
+    if !vert_result {
+        unsafe { gl::DeleteShader(vert_id); }
+        return None;
+    }
 
     let frag_id = make_shader!(frag: FRAGMENT_SHADER);
-    check_log!("FRAGMENT SHADER"
+    let frag_result = check_log!("FRAGMENT SHADER"
         GetShaderiv | GetShaderInfoLog
         vert_id COMPILE_STATUS
+        println
     );
+    if !frag_result {
+        unsafe { gl::DeleteShader(vert_id); }
+        unsafe { gl::DeleteShader(frag_id); }
+        return None;
+    }
 
     let program_id = unsafe { gl::CreateProgram() };
     unsafe {
@@ -143,15 +169,22 @@ pub fn create_program(vert: &str, frag: &str) -> GLuint {
         gl::LinkProgram(program_id);
     }
 
-    check_log!("SHADER PROGRAM"
+    let link_result = check_log!("SHADER PROGRAM"
         GetProgramiv | GetProgramInfoLog
         program_id LINK_STATUS
+        println
     );
+    if !link_result {
+        unsafe { gl::DeleteProgram(program_id); }
+        unsafe { gl::DeleteShader(vert_id); }
+        unsafe { gl::DeleteShader(frag_id); }
+        return None;
+    }
 
     unsafe {
         gl::DeleteShader(vert_id);
         gl::DeleteShader(frag_id);
     }
 
-    program_id
+    Some(program_id)
 }
