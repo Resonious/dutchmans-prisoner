@@ -5,18 +5,15 @@ extern crate libc;
 extern crate cgmath;
 
 use cgmath::*;
-use gl::types::*;
-use std::mem::{size_of, transmute, zeroed, uninitialized, transmute_copy};
-use std::vec::Vec;
-use std::ptr;
+use std::mem::{size_of, transmute, uninitialized};
 use self::image::{GenericImage};
 use gl::types::*;
 use render::shader;
-use libc::c_void;
 
 use asset;
 
 #[deriving(Clone)]
+#[allow(missing_copy_implementations)]
 pub struct Texcoords {
     pub top_right:    Vector2<GLfloat>,
     pub bottom_right: Vector2<GLfloat>,
@@ -63,6 +60,7 @@ impl Frame {
 }
 
 // Represents an actual texture that is currently on the GPU.
+#[allow(missing_copy_implementations)]
 pub struct Texture {
     pub id: GLuint,
     pub width: i32,
@@ -105,7 +103,7 @@ impl Texture {
 
     #[inline]
     pub fn frame_at_mut(&mut self, i: uint) -> &mut Frame {
-        let mut frames = self.frames();
+        let frames = self.frames();
         unsafe { transmute(&frames[i]) }
     }
 
@@ -207,71 +205,6 @@ impl Texture {
     }
 }
 
-// Makes sure the same texture is never loaded twice.
-pub struct TextureManager {
-    // NOTE Remember to bump this up if you run into issues.
-    pub textures: [Texture, ..10],
-    next_index: uint
-}
-
-impl TextureManager {
-    pub fn new() -> TextureManager {
-        TextureManager {
-            textures: unsafe { zeroed() },
-            next_index: 0
-        }
-    }
-
-    // If the texture with the given file name is present, return
-    // a pointer to the texture.
-    pub fn load(&mut self, filename: &'static str) -> *mut Texture {
-        let mut textures = &mut self.textures;
-
-        for item in textures.iter_mut() {
-            if item.filename == filename {
-                // println!("(TextureManager) found it!");
-                return item;
-            }
-        }
-
-        let index = self.next_index;
-        self.next_index += 1;
-        // textures.push(load_texture(filename));
-        textures[index] = load_texture(filename);
-        // println!("(TextureManager) made it!");
-        return &mut textures[index];
-    }
-
-    // Unload texture with the given name. Returns true if it
-    // was successfully removed.
-    pub fn unload(&mut self, filename: &'static str) -> bool {
-        let mut index = 0;
-
-        for item in self.textures.iter() {
-            if item.filename == filename
-                { break }
-            else
-                { index += 1 }
-        }
-
-        self.unload_at(index)
-    }
-
-    pub fn unload_at(&mut self, index: uint) -> bool {
-        panic!("Hey this function might suck because it changes the index by removing from the vector");
-
-        /*
-        match self.textures.remove(index) {
-            Some( (_, mut texture) ) => {
-                texture.unload();
-                true
-            }
-            None => false
-        }
-        */
-    }
-}
-
 // Load a texture from the given filename into the GPU
 // memory, returning a struct holding the OpenGL ID and
 // dimensions.
@@ -286,8 +219,8 @@ pub fn load_texture(filename: &'static str) -> Texture {
         gl::BindTexture(gl::TEXTURE_2D, tex_id);
 
         // TODO Maybe change these around I dunno.....
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
         // Set texture filtering
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);

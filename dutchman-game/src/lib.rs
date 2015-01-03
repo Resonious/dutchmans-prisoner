@@ -10,15 +10,16 @@ use glfw::{Context, Action, Key};
 
 use render::shader;
 use render::texture;
-use render::texture::{Texture, Texcoords, TextureManager, Frame};
+use render::texture::{Texture, Texcoords, Frame};
 use render::sprite::*;
-use controls::{Controls, Control};
+use controls::{Controls};
 use std::mem::{transmute, size_of, size_of_val, zeroed};
 use gl::types::*;
 use libc::c_void;
 use std::ptr;
 use cgmath::*;
 use std::time::duration::Duration;
+use std::num::Float;
 
 pub mod render;
 pub mod asset;
@@ -329,6 +330,25 @@ fn compile_shaders(gl_data: &mut GlData, game: &Game, window: &glfw::Window) -> 
     true
 }
 
+// NOTE A negative amount will cause us to go backwards (no duh, right).
+fn towards(start: f32, target: f32, amount: f32) -> f32 {
+    let mut value = start;
+    if value > target {
+        value -= amount;
+        if value < target { value = target }
+    }
+    else if value < target {
+        value += amount;
+        if start > target { value = target }
+    }
+    value
+}
+
+#[test]
+fn towards_works() {
+    assert_eq!(towards(10, 20, 5), 15);
+}
+
 #[no_mangle]
 pub extern "C" fn update_and_render(
         game:    &mut Game,
@@ -342,18 +362,18 @@ pub extern "C" fn update_and_render(
     glfw.poll_events();
 
     // TODO testing delta
-    game.debug_flag += delta.num_milliseconds() as int;
-    if game.debug_flag >= 1000 {
-        game.player_state.frame = match game.player_state.frame {
-            2 => 0,
-            _ => game.player_state.frame + 1
-        };
-        game.debug_flag = 0;
-    }
+    // game.debug_flag += delta.num_milliseconds() as int;
+    // if game.debug_flag >= 1000 {
+    //     game.player_state.frame = match game.player_state.frame {
+    //         2 => 0,
+    //         _ => game.player_state.frame + 1
+    //     };
+    //     game.debug_flag = 0;
+    // }
 
-    let mut tile_tex  = &mut gl_data.tile_tex;
+    let tile_tex      = &gl_data.tile_tex;
     let zero_zero_tex = &gl_data.zero_zero_tex;
-    let mut player_tex = &mut gl_data.player_tex;
+    let player_tex    = &gl_data.player_tex;
 
     let mut controls = &mut options.controls;
     for control in controls.iter_mut() {
@@ -404,17 +424,25 @@ pub extern "C" fn update_and_render(
 
     // === Reacting to input ===
     let delta_sec = delta.num_microseconds().unwrap() as f32 / 1_000_000.0;
-    if controls.up.down() {
-        game.cam_pos.y += 100.0 * delta_sec;
-    }
-    if controls.down.down() {
-        game.cam_pos.y -= 100.0 * delta_sec;
-    }
     if controls.left.down() {
-        game.cam_pos.x -= 100.0 * delta_sec;
+        game.player_state.position.x -= 100.0 * delta_sec;
+        game.player_state.frame = 1;
+        game.player_state.flipped = false as GLint;
     }
     if controls.right.down() {
-        game.cam_pos.x += 100.0 * delta_sec;
+        game.player_state.position.x += 100.0 * delta_sec;
+        game.player_state.frame = 1;
+        game.player_state.flipped = true as GLint;
+    }
+    if controls.up.down() {
+        game.player_state.position.y += 100.0 * delta_sec;
+        game.player_state.frame = 2;
+        game.player_state.flipped = false as GLint;
+    }
+    if controls.down.down() {
+        game.player_state.position.y -= 100.0 * delta_sec;
+        game.player_state.frame = 0;
+        game.player_state.flipped = false as GLint;
     }
 
     if controls.debug.just_down() {
@@ -423,6 +451,16 @@ pub extern "C" fn update_and_render(
     if controls.debug.just_up() {
         println!("Just up!");
     }
+
+    // === Updating camera position ===
+    game.cam_pos.y = towards(
+        game.cam_pos.y, game.player_state.position.y,
+        ((game.player_state.position.y - game.cam_pos.y).abs() * 10.0) * delta_sec
+    );
+    game.cam_pos.x = towards(
+        game.cam_pos.x, game.player_state.position.x,
+        ((game.player_state.position.x - game.cam_pos.x).abs() * 10.0) * delta_sec
+    );
 
     // === Updating buffers ===
     unsafe {

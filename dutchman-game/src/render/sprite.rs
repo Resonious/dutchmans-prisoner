@@ -4,19 +4,21 @@ extern crate libc;
 extern crate gl;
 extern crate cgmath;
 
-use std::mem::{transmute, size_of, size_of_val};
+use std::mem::{transmute, size_of};
 
 use render::shader;
 use cgmath::*;
 use gl::types::*;
 
 #[deriving(Copy)]
+#[allow(missing_copy_implementations)]
 pub struct SpriteData {
     pub position: Vector2<GLfloat>,
     pub frame: GLint,
     pub flipped: GLint
 }
 
+#[allow(missing_copy_implementations)]
 pub struct Sprite {
     pub vbo: GLuint,
     pub buffer_index: uint

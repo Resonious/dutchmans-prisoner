@@ -2,9 +2,7 @@ extern crate core;
 
 extern crate glfw;
 
-use glfw::{Action, Key};
-
-use std::mem::{transmute, size_of, size_of_val};
+use std::mem::{transmute, size_of};
 use std::slice;
 use std::slice::IterMut;
 
