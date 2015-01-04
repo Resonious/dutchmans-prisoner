@@ -366,11 +366,14 @@ fn towards_works() {
     assert_eq!(towards(10, 20, 5), 15);
 }
 
-fn pos_to_tile(position: Vector2<f32>, tilemap_position: Vector2<f32>) -> Vector2<i32> {
+fn pos_to_tile(position: Vector2<f32>, tilemap_position: Vector2<f32>) -> Vector2<f32> {
     let offset_pos = position - tilemap_position;
     // NOTE assumes 32*32 tiles.
-    let float_tile_pos = Vector2::new(offset_pos.x / 32.0, offset_pos.y / 32.0);
+    Vector2::new(offset_pos.x / 32.0, offset_pos.y / 32.0)
+}
 
+fn pos_to_tile_index(position: Vector2<f32>, tilemap_position: Vector2<f32>) -> Vector2<i32> {
+    let float_tile_pos = pos_to_tile(position, tilemap_position);
     Vector2::new(float_tile_pos.x.floor() as i32, float_tile_pos.y.floor() as i32)
 }
 
@@ -471,15 +474,62 @@ pub extern "C" fn update_and_render(
         game.player_state.frame = 0;
         game.player_state.flipped = false as GLint;
     }
-    // game.player_state.position = target_player_pos;
+    // Dumb collision
     let center_offset = Vector2::new(16.0, 0.0);
-    let target_tile_index = pos_to_tile(
-        target_player_pos + center_offset, game.tilemap_position
-    );
-    let target_tile = game.tilemap[target_tile_index.y as uint][target_tile_index.x as uint];
-    if !(target_tile == 9 || target_tile == 8) {
-        game.player_state.position = target_player_pos;
-    }
+    let target_tile_pos = pos_to_tile(target_player_pos + center_offset,
+                                      game.tilemap_position);
+    // TODO Move the player one axis at a time:
+    // split it into target_x_tile and target_y_tile where
+    // target_x_tile = pos_to_tile((target_pos.x, player_pos.y), tilemap_position)
+    // etc.
+    // This way the player does not get stuck on tile edges when hugging the walls.
+    let target_tile = game.tilemap[target_tile_pos.y.floor() as uint]
+                                  [target_tile_pos.x.floor() as uint];
+    game.player_state.position =
+        if target_tile == 9 || target_tile == 8 {
+            let current_tile_index = pos_to_tile_index(
+                game.player_state.position + center_offset, game.tilemap_position
+            );
+            let target_tile_index = Vector2::new(
+                target_tile_pos.x.floor() as i32,
+                target_tile_pos.y.floor() as i32
+            );
+            let wall_direction = target_tile_index - current_tile_index;
+
+            let mut offset_past_wall = Vector2::new(
+                target_tile_pos.x - target_tile_pos.x.floor(),
+                target_tile_pos.y - target_tile_pos.y.floor()
+            );
+            if wall_direction.x < 0 {
+                offset_past_wall.x = 1.0 - offset_past_wall.x;
+            }
+            if wall_direction.y < 0 {
+                offset_past_wall.y = 1.0 - offset_past_wall.y;
+            }
+
+            let mut offset = Vector2::from_value(0.0);
+            if wall_direction.x != 0 {
+                offset.x += offset_past_wall.x * wall_direction.x as f32;
+                // Convert into pixels:
+                // As usual, assumes 32x32 tiles.
+                offset.x *= 32.0;
+                offset.x += 1.0 * wall_direction.x as f32;
+            }
+            if wall_direction.y != 0 {
+                offset.y += offset_past_wall.y * wall_direction.y as f32;
+                // Convert into pixels:
+                offset.y *= 32.0;
+                offset.y += 1.0 * wall_direction.y as f32;
+            }
+
+            // println!("wall direction: {}", wall_direction);
+
+            // target_player_pos - Vector2::new((wall_direction.x * 10) as f32,
+            //                                 (wall_direction.y * 10) as f32)
+
+            target_player_pos - offset
+        }
+        else { target_player_pos };
 
 
     // === Updating camera position ===
@@ -503,7 +553,7 @@ pub extern "C" fn update_and_render(
     }
     // Tilemap
     unsafe {
-        let player_tile = pos_to_tile(
+        let player_tile = pos_to_tile_index(
             game.player_state.position + center_offset, game.tilemap_position
         );
 
