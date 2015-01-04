@@ -462,10 +462,7 @@ pub extern "C" fn update_and_render(
         game.player_state.flipped = false as GLint;
     }
 
-    if controls.debug.just_down() {
-        // game.player_state.flipped = !game.player_state.flipped;
-        game.player_state.position = Vector2::new(0.0, 0.0);
-    }
+
     if controls.debug.just_up() {
         println!("Just up!");
     }
@@ -491,11 +488,31 @@ pub extern "C" fn update_and_render(
     }
     // Tilemap
     unsafe {
+        let offset_pos =
+            game.player_state.position - game.tilemap_position + Vector2::new(16.0, 0.0);
+        let player_tile_pos =
+            Vector2::new(offset_pos.x / 32.0, offset_pos.y / 32.0); // - Vector2::from_value(0.5);
+        let player_tile =
+            Vector2::<i32>::new(player_tile_pos.x.floor() as i32, player_tile_pos.y.floor() as i32);
+
+        if controls.debug.just_down() {
+            println!("tile pos: {}", player_tile_pos);
+            println!("tile num: {}", player_tile);
+        }
+
+        let stepped_on_tile = SpriteData {
+            position: Vector2::new(
+                          player_tile.x as f32 * 32.0, player_tile.y as f32 * 32.0
+                      ) + game.tilemap_position,
+            frame: 0,
+            flipped: false as GLint
+        };
+
         gl::BindBuffer(gl::ARRAY_BUFFER, gl_data.tile_vbo);
-        // NOTE Assumes 10x10 tilemap.
-        let mut player_tile_pos = (game.player_pos - game.tilemap_position) * / 10;
-        // TODO TODO TODO TODO
-        gl::BufferSubData(gl::ARRAY_BUFFER, )
+        let byte_offset = (player_tile.x as uint +  10 * player_tile.y as uint) * size_of::<SpriteData>();
+        gl::BufferSubData(gl::ARRAY_BUFFER, byte_offset as i64,
+                          size_of::<SpriteData>() as i64,
+                          transmute(&stepped_on_tile));
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
