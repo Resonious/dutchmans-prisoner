@@ -179,7 +179,6 @@ pub struct Game {
     pub cam_pos: Vector2<GLfloat>,
 }
 
-
 #[no_mangle]
 pub extern "C" fn load(fresh_load: bool,
                        glfw_data: *const u8,
@@ -231,19 +230,6 @@ pub extern "C" fn load(fresh_load: bool,
             [9, 8, 8, 8, 7, 8, 8, 8, 8, 9]
         ];
 
-        // NOTE Slow but works
-        // let mut count = 0u;
-        // for (y, xs) in game.tilemap.iter().enumerate() {
-        //     for (x, frame) in xs.iter().enumerate() {
-        //         game.tile_positions[count] = SpriteData {
-        //             position: Vector2::new(x as f32 * 32.0, y as f32 * 32.0) + game.tilemap_position,
-        //             frame: *frame,
-        //             flipped: false as GLint
-        //         };
-        //         count += 1;
-        //     }
-        // }
-
         game.debug_flag = 0;
     }
 
@@ -282,7 +268,7 @@ pub extern "C" fn load(fresh_load: bool,
             // === Generate (by hand) stuff on the screen ===
             gen_buffer!(gldata.zero_zero_vbo, game.zero_zero_positions, ARRAY_BUFFER, DYNAMIC_DRAW);
             gen_buffer!(gldata.player_vbo, [game.player_state], ARRAY_BUFFER, DYNAMIC_DRAW);
-            // gen_buffer!(gldata.tile_vbo, std::ptr::null(), ARRAY_BUFFER, STATIC_DRAW);
+
             gl::GenBuffers(1, &mut gldata.tile_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, gldata.tile_vbo);
             gl::BufferData(gl::ARRAY_BUFFER,
@@ -506,6 +492,10 @@ pub extern "C" fn update_and_render(
     // Tilemap
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, gl_data.tile_vbo);
+        // NOTE Assumes 10x10 tilemap.
+        let mut player_tile_pos = (game.player_pos - game.tilemap_position) * / 10;
+        // TODO TODO TODO TODO
+        gl::BufferSubData(gl::ARRAY_BUFFER, )
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
