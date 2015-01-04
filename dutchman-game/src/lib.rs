@@ -366,6 +366,14 @@ fn towards_works() {
     assert_eq!(towards(10, 20, 5), 15);
 }
 
+fn pos_to_tile(position: Vector2<f32>, tilemap_position: Vector2<f32>) -> Vector2<i32> {
+    let offset_pos = position - tilemap_position;
+    // NOTE assumes 32*32 tiles.
+    let float_tile_pos = Vector2::new(offset_pos.x / 32.0, offset_pos.y / 32.0);
+
+    Vector2::new(float_tile_pos.x.floor() as i32, float_tile_pos.y.floor() as i32)
+}
+
 #[no_mangle]
 pub extern "C" fn update_and_render(
         game:    &mut Game,
@@ -441,31 +449,38 @@ pub extern "C" fn update_and_render(
 
     // === Reacting to input ===
     let delta_sec = delta.num_microseconds().unwrap() as f32 / 1_000_000.0;
+    let mut target_player_pos = game.player_state.position.clone();
+
     if controls.left.down() {
-        game.player_state.position.x -= 100.0 * delta_sec;
+        target_player_pos.x -= 100.0 * delta_sec;
         game.player_state.frame = 1;
         game.player_state.flipped = false as GLint;
     }
     if controls.right.down() {
-        game.player_state.position.x += 100.0 * delta_sec;
+        target_player_pos.x += 100.0 * delta_sec;
         game.player_state.frame = 1;
         game.player_state.flipped = true as GLint;
     }
     if controls.up.down() {
-        game.player_state.position.y += 100.0 * delta_sec;
+        target_player_pos.y += 100.0 * delta_sec;
         game.player_state.frame = 2;
         game.player_state.flipped = false as GLint;
     }
     if controls.down.down() {
-        game.player_state.position.y -= 100.0 * delta_sec;
+        target_player_pos.y -= 100.0 * delta_sec;
         game.player_state.frame = 0;
         game.player_state.flipped = false as GLint;
     }
-
-
-    if controls.debug.just_up() {
-        println!("Just up!");
+    // game.player_state.position = target_player_pos;
+    let center_offset = Vector2::new(16.0, 0.0);
+    let target_tile_index = pos_to_tile(
+        target_player_pos + center_offset, game.tilemap_position
+    );
+    let target_tile = game.tilemap[target_tile_index.y as uint][target_tile_index.x as uint];
+    if !(target_tile == 9 || target_tile == 8) {
+        game.player_state.position = target_player_pos;
     }
+
 
     // === Updating camera position ===
     game.cam_pos.y = towards(
@@ -488,15 +503,11 @@ pub extern "C" fn update_and_render(
     }
     // Tilemap
     unsafe {
-        let offset_pos =
-            game.player_state.position - game.tilemap_position + Vector2::new(16.0, 0.0);
-        let player_tile_pos =
-            Vector2::new(offset_pos.x / 32.0, offset_pos.y / 32.0); // - Vector2::from_value(0.5);
-        let player_tile =
-            Vector2::<i32>::new(player_tile_pos.x.floor() as i32, player_tile_pos.y.floor() as i32);
+        let player_tile = pos_to_tile(
+            game.player_state.position + center_offset, game.tilemap_position
+        );
 
         if controls.debug.just_down() {
-            println!("tile pos: {}", player_tile_pos);
             println!("tile num: {}", player_tile);
         }
 
